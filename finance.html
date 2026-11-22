@@ -1,0 +1,1752 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive Q-learning asset management case study: two-horizon momentum, transaction costs and downside-sensitive rewards.">
+  <title>Asset Management Case Study · RL Workshop</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="finance.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Return to RL workshop home">
+      <span class="brand-mark">Q</span>
+      <span><strong>Reinforcement Learning</strong><small>Asset management case study</small></span>
+    </a>
+    <nav class="topnav site-nav finance-topnav" aria-label="Main sections">
+      <a href="index.html">Basics</a>
+      <a class="active" href="finance.html" aria-current="page">Applied to finance</a>
+      <a href="coding.html">Coding</a>
+    </nav>
+    <div class="status-pill"><span></span> Python learning engine</div>
+  </header>
+  <nav class="finance-scenario-switch" aria-label="Finance scenarios">
+    <button type="button" class="active" data-scenario="apple">Apple</button>
+    <button type="button" data-scenario="microsoft">Microsoft</button>
+    <button type="button" data-scenario="multi">Multi-asset</button>
+  </nav>
+  <nav class="finance-step-nav" aria-label="Scenario pages">
+    <div class="finance-step-list">
+      <button type="button" class="finance-step-link active" data-finance-view="0" aria-current="step">Overview</button>
+      <button type="button" class="finance-step-link" data-finance-view="1">Portfolio MDP</button>
+      <button type="button" class="finance-step-link" data-finance-view="2">Training</button>
+      <button type="button" class="finance-step-link" data-finance-view="3">Evaluation</button>
+    </div>
+    <div class="finance-nav-track" aria-hidden="true"><span id="finance-nav-progress"></span></div>
+  </nav>
+
+  <div class="finance-engine-strip" role="status" aria-live="polite"><span class="finance-engine-dot"></span><span id="finance-runtime">Initializing Python runtime…</span></div>
+  <main class="finance-main">
+    <div class="finance-view active" id="finance-overview" data-finance-panel="0">
+    <section class="finance-hero">
+      <p class="eyebrow">TUM · RL workshop · Apple scenario</p>
+      <h1>Can an RL agent learn <em>when to rebalance?</em></h1>
+      <p class="finance-lead">From the grid-world Bellman update to a portfolio decision: each week the agent chooses how much to hold in Apple stock versus cash. It sees <strong>short- and long-horizon momentum</strong>, and learns from returns, transaction costs, and an optional downside penalty.</p>
+      <div class="finance-hero-actions"><a class="button secondary" href="coding.html">Explore the code and notebooks</a><a class="button secondary" href="data/historical_normalized_weekly_stocks_2018_2019.csv" download>Download Apple data</a></div>
+      <p class="finance-disclaimer">Educational demonstration, not a trading strategy. The data cover just 2018–2019 and are insufficient to validate predictive investment performance.</p>
+    </section>
+
+
+    <section class="finance-section finance-introduction" aria-labelledby="intro-title">
+      <div class="section-heading"><div><p class="eyebrow">The motivation · before we code</p><h2 id="intro-title">A portfolio manager faces a decision, not just a prediction.</h2></div><p>A fixed buy-and-hold policy is simple, but changing exposure may be valuable when conditions change. Every adjustment can also incur costs.</p></div>
+      <div class="finance-intro-grid">
+        <article class="finance-intro-card"><span class="finance-intro-number">01</span><h3>What do we control?</h3><p>Our portfolio weight: how much capital to allocate to Apple stock versus cash at each weekly decision.</p></article>
+        <article class="finance-intro-card"><span class="finance-intro-number">02</span><h3>What is uncertain?</h3><p>Future returns. We observe recent price momentum, but neither the next return nor the true market state is known.</p></article>
+        <article class="finance-intro-card"><span class="finance-intro-number">03</span><h3>Why is it sequential?</h3><p>Moving from 0% to 100% exposure has a cost. Today's weight becomes the starting point for tomorrow's decision.</p></article>
+      </div>
+      <div class="finance-scenario">
+        <div class="finance-scenario-copy"><p class="eyebrow">Thought experiment</p><h3>Suppose you already hold 50% Apple.</h3><p>The short-term signal is positive, but the long-term signal is negative. Should you hold, buy more, or sell? The signals alone cannot tell you the answer: returns, risks, and future adjustment costs matter.</p><p class="finance-scenario-foot">These signal values illustrate a possible state; they are not a specific observation from the dataset.</p></div>
+        <div class="finance-scenario-detail"><div class="finance-signal-row"><span>Previous allocation</span><strong>50% Apple</strong></div><div class="finance-signal-row"><span>4-week momentum</span><strong class="finance-positive">Positive</strong></div><div class="finance-signal-row"><span>12-week momentum</span><strong class="finance-negative">Negative</strong></div><div class="finance-choice-row"><span>Available choices</span><div><b>0%</b><b>50%</b><b>100%</b></div></div><p>The agent learns a preference for each action from historical experience.</p></div>
+      </div>
+      <div class="finance-bridge"><div><strong>The workshop question</strong><p>Can a learned rebalancing policy outperform transparent alternatives after transaction costs—and how convincing would such a result be?</p></div></div>
+    </section>
+    </div>
+
+    <div class="finance-view" id="finance-model" data-finance-panel="1">
+    <section class="finance-section" aria-labelledby="setup-title">
+      <div class="section-heading"><div><p class="eyebrow">01 · Problem formulation</p><h2 id="setup-title">The investment decision as an MDP</h2></div><p>The action changes the exposure and the cost of the next adjustment. The market return itself is unaffected by this price-taking investor.</p></div>
+      <div class="finance-setup-grid">
+        <article class="panel finance-setup-card"><span class="finance-step">Observe a state</span><h3>12 possible situations</h3><p>4-week momentum: up / down<br>12-week momentum: up / down<br>Previous Apple target: 0 / 50 / 100%</p><div class="finance-equation">2 × 2 × 3 = <strong>12 states</strong></div></article>
+        <article class="panel finance-setup-card"><span class="finance-step">Choose an action</span><h3>Three portfolio weights</h3><div class="finance-weight-options"><div><strong>0%</strong><small>Cash</small></div><div><strong>50%</strong><small>Split</small></div><div><strong>100%</strong><small>Apple</small></div></div><p>All remaining capital is held in cash, assumed to earn zero interest.</p></article>
+        <article class="panel finance-setup-card"><span class="finance-step">Learn from the result</span><h3>A reward, then a new state</h3><p>After one week, the agent observes the realized return and updates a Q-value using a Bellman-based temporal-difference target.</p><div class="finance-equation small">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</div></article>
+      </div>
+      <div class="finance-math-note"><strong>Reward (decimal units)</strong><div class="finance-equation">r = w × R<sub>next</sub> − c × |w − w<sub>previous</sub>| − λ × max(−w × R<sub>next</sub>, 0)</div><p><strong>c</strong> is a simplified transaction-cost rate; <strong>λ</strong> is a downside penalty used only in the learning objective. It is <em>not deducted</em> from realized net portfolio wealth. The 50% target is treated as maintained between decisions; the toy cost model charges for changes in target weights, not small within-week drift corrections.</p></div>
+    </section>
+
+
+    <section class="finance-section finance-method-bridge" aria-labelledby="bridge-title">
+      <div class="section-heading"><div><p class="eyebrow">From theory to implementation</p><h2 id="bridge-title">Bellman planning versus learning from data</h2></div><p>Both approaches consider immediate rewards and future consequences. They differ in how the required expectations are obtained.</p></div>
+      <div class="finance-method-grid">
+        <article class="panel finance-method-card"><span class="finance-step">Classical dynamic programming</span><h3>Know a transition model</h3><p>With known rewards and transition probabilities, Bellman backups average over possible outcomes and compute optimal values within the model.</p><div class="finance-equation small">Q*(s,a) = E[r + γ max Q*(s′,·) | s,a]</div></article>
+        <article class="panel finance-method-card"><span class="finance-step">Tabular Q-learning</span><h3>Learn from observed transitions</h3><p>We do not supply the market transition probabilities. The agent updates a Q-table using realized weekly returns from the training period.</p><div class="finance-equation small">Q ← Q + α [r + γ max Q(s′,·) − Q]</div></article>
+      </div>
+      <p class="finance-method-caveat"><strong>Important modeling assumption:</strong> Our state contains only two binary momentum signals and the previous target weight. It is a deliberately incomplete description of financial markets, not a verified Markov state.</p>
+    </section>
+    </div>
+
+    <div class="finance-view" id="finance-experiment" data-finance-panel="2">
+    <section class="finance-section" id="case-lab" aria-labelledby="lab-title">
+      <div class="section-heading"><div><p class="eyebrow">02 · Browser experiment</p><h2 id="lab-title">Watch an agent learn, one decision at a time</h2></div><p>Watch the agent update Q-values from observed returns, then reveal how the frozen policy performs on later weeks. Each replay pass uses the <strong>same 64 training weeks</strong>; repeated passes do not create new data.</p></div>
+      <div class="finance-learning-instructions"><div><strong>01 · Configure</strong><span>Adjust costs, reward objective and learning parameters.</span></div><div><strong>02 · Watch</strong><span>Press Start; rewards, decisions and Q-values update automatically.</span></div><div><strong>03 · Evaluate</strong><span>Freeze the policy and reveal held-out returns only afterwards.</span></div></div>
+      <div class="finance-lab-grid">
+        <aside class="panel finance-controls">
+          <div class="panel-header"><div><span class="panel-kicker">Q-learning configuration</span><h3>Experiment setup</h3></div></div>
+          <label class="finance-control"><span><strong>Transaction costs</strong><output id="cost-output" for="cost-slider">10 bps</output></span><input id="cost-slider" type="range" min="0" max="50" step="5" value="10"><small>Cost per full 100-percentage-point target-weight change.</small></label>
+          <label class="finance-control"><span><strong>Downside penalty λ</strong><output id="risk-output" for="risk-slider">0.50</output></span><input id="risk-slider" type="range" min="0" max="2" step="0.25" value="0.5"><small>Penalizes negative stock-exposure returns during training, beyond net investment return.</small></label>
+          <div class="finance-control-section-label">1 · Choose the learning rules</div>
+          <label class="finance-control finance-compact"><span><strong>Learning rate α</strong><output id="alpha-output" for="alpha-slider">0.15</output></span><input id="alpha-slider" type="range" min="0.05" max="0.50" step="0.05" value="0.15"><small>How much one observed reward changes a Q-value.</small></label>
+          <label class="finance-control finance-compact"><span><strong>Future reward discount γ</strong><output id="gamma-output" for="gamma-slider">0.90</output></span><input id="gamma-slider" type="range" min="0" max="0.99" step="0.01" value="0.90"><small>How much future rewards count in the Bellman target.</small></label>
+          <label class="finance-control finance-compact"><span><strong>Initial exploration ε</strong><output id="epsilon-output" for="epsilon-slider">25%</output></span><input id="epsilon-slider" type="range" min="0.05" max="0.60" step="0.05" value="0.25"><small>Probability of trying a random allocation initially; decays to 3% during training.</small></label>
+          <div class="finance-control-section-label">2 · Choose how to watch</div>
+          <div class="finance-presets"><p><strong>Compare training configurations</strong> · choosing a preset resets the Q-table to zero</p><div>
+          <button type="button" class="button small" data-finance-preset="baseline">Baseline · 10 bps</button>
+          <button type="button" class="button small" data-finance-preset="aggressive">No costs · no downside penalty</button>
+          <button type="button" class="button small" data-finance-preset="shortHorizon">Low γ · same costs</button>
+          <button type="button" class="button small" data-finance-preset="defensive">Defensive · 50 bps + higher penalty</button>
+          </div></div>
+          <label class="finance-select-control" for="finance-budget">Training duration <select id="finance-budget"><option value="50">50 replay passes</option><option value="100">100 replay passes</option><option value="250">250 replay passes</option><option value="500" selected>500 replay passes</option></select></label>
+          <label class="finance-select-control" for="finance-speed">Animation speed <select id="finance-speed"><option value="1">Slow · 1 week/frame</option><option value="8">Careful · 8 weeks/frame</option><option value="64" selected>Normal · 1 pass/frame</option><option value="256">Fast · 4 passes/frame</option></select></label>
+          <div class="finance-player"><button id="finance-train" class="button primary finance-start" type="button">▶ Start training</button><button id="finance-pause" class="button secondary" type="button" disabled>Ⅱ Pause</button></div>
+          <div class="finance-progress-details"><span id="finance-progress-label">Ready to start</span><strong id="finance-progress-percent">0%</strong></div>
+          <div class="finance-progress-track" role="progressbar" id="finance-progress" aria-label="Training progress" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0"><span id="finance-progress-fill"></span></div>
+          <details class="finance-step-details"><summary>Inspect a single weekly update</summary><p>Pause autoplay and advance one week at a time to examine the Bellman calculation.</p><button id="finance-step" class="button secondary finance-action" type="button">Step one week →</button></details>
+          <button id="finance-reset" class="button secondary finance-action" type="button">↺ Reset training</button>
+          <p id="finance-status" class="finance-status" role="status" aria-live="polite">Ready. Choose the settings above, then press Start training.</p>
+          <p class="finance-small">Changing the learning settings resets training. Speed can be changed while the animation is playing. Only 64 distinct historical weeks update the Q-table; later observations are held out for testing.</p>
+        </aside>
+        <div class="finance-dashboard">
+          <div class="finance-metric-row finance-learning-metrics">
+            <article class="finance-stat"><small>Replay passes completed</small><strong id="stat-episodes">0 / 500</strong><span id="stat-week-progress">0 of 64 weeks in current pass</span></article>
+            <article class="finance-stat"><small>Training reward · last pass</small><strong id="stat-training-reward">—</strong><span>Sum of agent rewards; not return %</span></article>
+            <article class="finance-stat"><small>Exploration probability</small><strong id="stat-exploration">25%</strong><span>Chance of random action this pass</span></article><article class="finance-stat"><small>Latest weekly RL reward</small><strong id="stat-last-reward">—</strong><span>Updates after each observed decision</span></article>
+          </div>
+          <article class="panel finance-chart-card finance-learning-card finance-detail" data-detail-panel="reward">
+            <div class="chart-header"><div><span class="panel-kicker">Learning process · same historical training weeks replayed</span><h3>How does the training reward evolve?</h3></div><span id="finance-learning-counter" class="finance-chart-counter">0 passes</span></div>
+            <svg id="finance-learning-chart" viewBox="0 0 760 285" role="img" aria-label="Reward per training replay pass"></svg>
+            <div class="finance-legend"><span><i style="background:#12674f"></i>Exploratory agent reward</span><span><i style="background:#294fbe"></i>Greedy policy reward on training data</span><span><i style="background:#b58b27"></i>20-pass average agent reward</span></div>
+            <div class="finance-policy-now" id="finance-policy-now" aria-live="off"><div class="finance-policy-title"><strong>How the learned policy is changing</strong><small>Current greedy choice across all 12 states</small></div><div class="finance-policy-bars" id="finance-policy-bars"></div><p id="finance-policy-note">Initially all actions are tied; the displayed policy is arbitrary until training updates its Q-values.</p></div>
+            <p class="finance-small">Each point sums the reward over one 64-week replay (returns − costs − downside penalty). The greedy series evaluates the current policy on the <strong>same training history</strong> without exploration. More passes cannot create independent observations or demonstrate investment skill.</p>
+          </article>
+          <div class="finance-detail-tabs" role="tablist" aria-label="Training displays"><button type="button" class="active" data-finance-detail="reward" aria-selected="true">Training reward</button><button type="button" data-finance-detail="memory" aria-selected="false">Agent memory</button></div>
+          <article class="panel finance-learning-transition finance-detail" data-detail-panel="memory" hidden>
+            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>See what changed in the agent's memory</h3></div></div>
+            <div id="finance-update-state" class="finance-update-state">No transition yet. Click “Step forward one week” to observe an action, reward, and Q-value update.</div>
+            <div class="finance-update-grid"><div><small>Old Q(s,a)</small><strong id="finance-q-old">—</strong></div><div><small>Bellman target</small><strong id="finance-q-target">—</strong></div><div><small>TD error</small><strong id="finance-td-error">—</strong></div><div><small>Updated Q(s,a)</small><strong id="finance-q-new">—</strong></div></div>
+            <p id="finance-update-formula" class="finance-update-formula">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</p>
+            <p id="finance-recent-note" class="finance-small">The three Q-values below are updated live for the most recently visited state. Watch them change as training runs.</p>
+            <div id="finance-live-q" class="finance-live-q"></div>
+          </article>
+        </div>
+      </div>
+    </section>
+    </div>
+
+    <div class="finance-view" id="finance-evaluation" data-finance-panel="3">
+    <section class="finance-section" aria-labelledby="results-title">
+      <div class="section-heading"><div><p class="eyebrow">03 · Inspect the evidence</p><h2 id="results-title">Inspect the learned policy and its limitations</h2></div><p>After freezing the policy, check the out-of-sample benchmarks. A rising training curve alone cannot prove the agent generalizes.</p></div>
+      <button id="finance-evaluate" class="button primary" disabled type="button">Evaluate frozen policy</button>
+          <div class="finance-comparison-heading"><div><p class="eyebrow">Separate evaluation · no learning on future weeks</p><h3>Performance after freezing the Q-table</h3></div><p>Evaluate only when ready. This later period must not be used to select hyperparameters.</p></div>
+          <div class="finance-metric-row"><article class="finance-stat"><small>Q-learning · net test return</small><strong id="stat-rl">—</strong><span>After simplified trading costs</span></article><article class="finance-stat"><small>100% Apple · net test return</small><strong id="stat-apple">—</strong><span>Same observation period</span></article><article class="finance-stat"><small>RL allocation changes</small><strong id="stat-changes">—</strong><span>Transitions in the evaluation period</span></article></div>
+          <article class="panel finance-chart-card"><div class="chart-header"><div><span class="panel-kicker">Parameter sensitivity</span><h3>Compare evaluated configurations</h3></div></div>
+          <div id="finance-run-compare"></div></article>
+          <article class="panel finance-chart-card"><div class="chart-header"><div><span class="panel-kicker">Held-out historical weeks · evaluate explicitly</span><h3>Cumulative test-period wealth</h3></div></div><svg id="finance-wealth-chart" viewBox="0 0 760 310" role="img" aria-label="Cumulative wealth chart for RL and benchmark policies"></svg><div id="finance-chart-legend" class="finance-legend"></div><p class="finance-small" id="finance-compare-note">No test results yet. Train the agent, then click “Compare frozen policy”. The test observations never update Q-values.</p></article>
+      <div class="finance-results-grid">
+        <article class="panel finance-result-card"><h3>Evaluation-period comparison</h3><p id="finance-results-placeholder" class="finance-empty-note">Not evaluated yet. Return to “Watch learning”, complete some training, then click “Compare frozen policy”.</p><div class="finance-table-scroll"><table class="finance-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Turnover</th><th>Changes</th></tr></thead><tbody id="finance-results-body"></tbody></table></div><p class="finance-small">Benchmarks: full Apple exposure, weekly 50% Apple target, cash, and an all-in/two-horizon momentum rule. Identical cost parameter and evaluation dates are used throughout.</p></article>
+        <article class="panel finance-result-card"><h3>Inspect a weekly decision</h3><label class="finance-select-label" for="finance-week">Evaluation decision week</label><select id="finance-week"></select><div id="finance-decision" class="finance-decision"></div><p class="finance-small">The decision at week <em>t</em> sees prices through <em>t</em> only; the next-week return is shown <em>after</em> the action for explanation.</p></article>
+      </div>
+      <article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
+    </section>
+
+    <section class="finance-section finance-takeaways" aria-labelledby="takeaways-title"><div class="section-heading"><div><p class="eyebrow">04 · Discussion</p><h2 id="takeaways-title">What this does—and does not—show</h2></div><p>As in the grid-world demo, Q-values are learned from transitions. Unlike grid world, the investor cannot run truly independent experiments on past markets.</p></div><div class="finance-discussion-grid"><article><h3>Why two signals?</h3><p>The second horizon creates more possible market states: 12 instead of 6. It can capture signal disagreements, but increases sparsity given only 64 distinct training decisions.</p></article><article><h3>Why account for trading costs?</h3><p>Today’s target weight affects the cost of tomorrow’s adjustment. This creates a sequential decision problem, rather than just predicting next week’s return.</p></article><article><h3>Why benchmark classical alternatives?</h3><p>RL must be compared with transparent decision rules or suitable dynamic optimization baselines before we can say its added complexity is useful.</p></article><article><h3>Why not jump to PPO?</h3><p>With 105 weekly price points, a neural policy is harder to audit and potentially easier to overfit. The notebook demonstrates learning mechanics, not production-ready portfolio management.</p></article></div><p class="finance-sources"><strong>Data:</strong> Plotly demonstration weekly normalized stock prices (AAPL, 2018–2019; dividend adjustment unverified). <strong>Motivation:</strong> Bernd Scherer (2020), <em>Maschinelles Lernen im Asset Management</em>, <em>Absolut|report</em>, pp. 46–51. These sources do not establish RL outperformance. See the <a href="data:application/x-ipynb+json;base64,ewogImNlbGxzIjogWwogIHsKICAgImNlbGxfdHlwZSI6ICJtYXJrZG93biIsCiAgICJpZCI6ICJlZDEwZmE4MiIsCiAgICJtZXRhZGF0YSI6IHt9LAogICAic291cmNlIjogWwogICAgIiMgRHluYW1pYyBwb3J0Zm9saW8gYWxsb2NhdGlvbiB3aXRoIHRhYnVsYXIgUS1sZWFybmluZyBcdTIwMTQgUHl0aG9uIGVuZ2luZSBwYXJpdHkgZWRpdGlvblxuIiwKICAgICJcbiIsCiAgICAiVGhpcyBub3RlYm9vayBpbXBvcnRzICoqdGhlIHNhbWUgYGFzc2V0X2FnZW50LnB5YCBpbXBsZW1lbnRhdGlvbiBleGVjdXRlZCBpbiB0aGUgd2Vic2l0ZSB0aHJvdWdoIFB5b2RpZGUqKi4gSXQgdXNlcyB0aGUgaWRlbnRpY2FsIGRhdGEsIGRlZmF1bHQgcGFyYW1ldGVycywgc2VlZGVkIGdlbmVyYXRvciwgdHJhaW5pbmcgdHJhbnNpdGlvbnMsIHJld2FyZCwgUS10YWJsZSwgYW5kIGV2YWx1YXRpb24gcm91dGluZXMuXG4iLAogICAgIlxuIiwKICAgICJSdW4gZnJvbSB0aGUgcmVwb3NpdG9yeSByb290IG9yIHRoZSBgbm90ZWJvb2tzL2AgZm9sZGVyLiBUaGUgcmVwZWF0ZWQgMjAxOFx1MjAxMzE5IGhpc3RvcmljYWwgd2Vla3MgYXJlIGFuIGluc3RydWN0aW9uYWwgZXhhbXBsZSwgbm90IGluZGVwZW5kZW50IHRyYWluaW5nIGVwaXNvZGVzLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImI0OThjOWFkIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgMS4gU3BlY2lmeSB0aGUgTURQLCBiZWZvcmUgd3JpdGluZyBjb2RlXG4iLAogICAgIlxuIiwKICAgICJ8IE1EUCBjb21wb25lbnQgfCBUaGlzIGV4YW1wbGUgfFxuIiwKICAgICJ8LS0tfC0tLXxcbiIsCiAgICAifCBTdGF0ZSB8IFNpZ24gb2YgcGFzdCAqKjQtd2VlayBtb21lbnR1bSoqICh1cC9kb3duKTsgc2lnbiBvZiBwYXN0ICoqMTItd2VlayBtb21lbnR1bSoqICh1cC9kb3duKTsgKipwcmV2aW91cyB0YXJnZXQgd2VpZ2h0KiogKDAlLCA1MCUsIDEwMCUpIHxcbiIsCiAgICAifCBBY3Rpb24gfCBOZXcgd2Vla2x5IHRhcmdldCB3ZWlnaHQgaW4gQXBwbGU6IDAlLCA1MCUsIDEwMCU7IHJlbWFpbmRlciBoZWxkIGFzIG5vbi1pbnRlcmVzdC1iZWFyaW5nIGNhc2ggfFxuIiwKICAgICJ8IFRyYW5zaXRpb24gfCBIaXN0b3JpY2FsIG5leHQtd2VlayBBcHBsZSByZXR1cm4gKGV4b2dlbm91cyB0byBhIHByaWNlLXRha2luZyBpbnZlc3RvciksIGFuZCBjaGFuZ2UgaW4gcHJldmlvdXMgdGFyZ2V0IHdlaWdodCB8XG4iLAogICAgInwgUmV3YXJkIHwgV2Vla2x5IG5ldCByZXR1cm4gKiptaW51cyBhbiBvcHRpb25hbCBkb3duc2lkZSBwZW5hbHR5KiogKGRlZmluZWQgYmVsb3cpIHxcbiIsCiAgICAifCBQb2xpY3kgfCBPbmUgYWxsb2NhdGlvbiBmb3IgZWFjaCBvZiB0aGUgMTIgb2JzZXJ2YWJsZSBzdGF0ZXMgfFxuIiwKICAgICJ8IExlYXJuaW5nIHwgVGFidWxhciBRLWxlYXJuaW5nIHdpdGggXHUwM2I1LWdyZWVkeSBleHBsb3JhdGlvbjsgQmVsbG1hbiBzYW1wbGUgdXBkYXRlcyB8XG4iLAogICAgIlxuIiwKICAgICJUaGUgc3RhdGUgaGFzICoqMiBcdTAwZDcgMiBcdTAwZDcgMyA9IDEyIGNvbWJpbmF0aW9ucyoqLCBhbmQgMyBhY3Rpb25zLCBnaXZpbmcgKiozNiBRLXZhbHVlcyoqLiBUaGlzIGlzIGxhcmdlciB0aGFuIHRoZSBvcmlnaW5hbCBvbmUtc2lnbmFsLCBzaXgtc3RhdGUgbm90ZWJvb2ssIGJ1dCByZW1haW5zIGludGVycHJldGFibGUuXG4iLAogICAgIlxuIiwKICAgICJUaGUgcmV3YXJkIGluICoqZGVjaW1hbCByZXR1cm4gdW5pdHMqKiBpc1xuIiwKICAgICJcbiIsCiAgICAiXFxbcl97dCsxfT0gd190IFJfe3QrMX0tY1xcbHZlcnQgd190LXdfe3QtMX1cXHJ2ZXJ0LVxcbGFtYmRhXFxtYXgoLXdfdFJfe3QrMX0sMCkuXFxdXG4iLAogICAgIlxuIiwKICAgICJIZXJlLCBcXChjXFwpIGlzIHRoZSBwcm9wb3J0aW9uYWwgY29zdCBvZiBjaGFuZ2luZyB0aGUgdGFyZ2V0IHdlaWdodCBhbmQgXFwoXFxsYW1iZGFcXCkgaXMgYW4gKmlsbHVzdHJhdGl2ZSogZG93bnNpZGUgcGVuYWx0eS4gVGhlIGRvd25zaWRlIHBlbmFsdHkgY2hhbmdlcyB0aGUgUkwgb2JqZWN0aXZlOyBpdCBpcyAqKm5vdCoqIGEgdHJhZGluZyBjb3N0LCBhbmQgaXMgbmV2ZXIgZGVkdWN0ZWQgd2hlbiByZXBvcnRpbmcgcmVhbGl6ZWQgcG9ydGZvbGlvIHdlYWx0aC4gVGhlIGV2YWx1YXRpb24gcmVwb3J0cyBhY3R1YWwgbmV0IHJldHVybnMgc2VwYXJhdGVseS5cbiIsCiAgICAiXG4iLAogICAgIlxcW1EocyxhKVxcbGVmdGFycm93IFEocyxhKStcXGFscGhhXFxiaWdbcitcXGdhbW1hXFxtYXhfe2EnfVEocycsYScpLVEocyxhKVxcYmlnXS5cXF1cbiIsCiAgICAiXG4iLAogICAgIlRoZSBmaW5hbmNpYWwgc3RhdGUgaXMgb25seSBhbiAqKmFwcHJveGltYXRlKiogTWFya292IGRlc2NyaXB0aW9uOiBwYXN0IHR3byBtb21lbnR1bSBzaWducyBkbyBub3QgZnVsbHkgY2hhcmFjdGVyaXplIG1hcmtldCBkeW5hbWljcy4gVGhpcyBpcyBhbiBlZHVjYXRpb25hbCBhYnN0cmFjdGlvbiwgbm90IGEgdmFsaWRhdGVkIGVjb25vbWljIG1vZGVsLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjRmZmMzYTkyIiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjIxODQwOVoiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjIxODI3N1oiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ1NzA0NVoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNDU2NDQ3WiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICJmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGhcbiIsCiAgICAiaW1wb3J0IHN5cywgbnVtcHkgYXMgbnAsIHBhbmRhcyBhcyBwZCwgbWF0cGxvdGxpYi5weXBsb3QgYXMgcGx0XG4iLAogICAgInJvb3QgPSBuZXh0KChwIGZvciBwIGluIFtQYXRoLmN3ZCgpLCBQYXRoLmN3ZCgpLnBhcmVudCwgUGF0aC5jd2QoKS5wYXJlbnQucGFyZW50XSBpZiAocCAvIFwiYXNzZXRfYWdlbnQucHlcIikuZXhpc3RzKCkpLCBOb25lKVxuIiwKICAgICJhc3NlcnQgcm9vdCBpcyBub3QgTm9uZSwgXCJLZWVwIGFzc2V0X2FnZW50LnB5IG5leHQgdG8gdGhlIHNpdGUsIG9yIHJ1biBmcm9tIHRoZSByZXBvc2l0b3J5IHJvb3RcIlxuIiwKICAgICJzeXMucGF0aC5pbnNlcnQoMCxzdHIocm9vdCkpXG4iLAogICAgImZyb20gYXNzZXRfYWdlbnQgaW1wb3J0IFBvcnRmb2xpb0FnZW50LCBERUZBVUxUUywgZ3JlZWR5XG4iLAogICAgImRmID0gcGQucmVhZF9jc3Yocm9vdCAvIFwiZGF0YS9oaXN0b3JpY2FsX25vcm1hbGl6ZWRfd2Vla2x5X3N0b2Nrc18yMDE4XzIwMTkuY3N2XCIscGFyc2VfZGF0ZXM9W1wiZGF0ZVwiXSlcbiIsCiAgICAicHJpY2VzID0gZGZbXCJBQVBMXCJdLnRvX251bXB5KGR0eXBlPWZsb2F0KS5yb3VuZCg4KVxuIiwKICAgICJkYXRlcyA9IGRmW1wiZGF0ZVwiXS5kdC5zdHJmdGltZShcIiVZLSVtLSVkXCIpLnRvbGlzdCgpXG4iLAogICAgInByaW50KGZcIkRhdGFzZXQ6IHtsZW4ocHJpY2VzKX0gb2JzZXJ2YXRpb25zLCB7ZGF0ZXNbMF19IHRocm91Z2gge2RhdGVzWy0xXX1cIilcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImVkMzI1NmY5IiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgMi4gQ3JlYXRlIHBvaW50LWluLXRpbWUgc2lnbmFscyBhbmQgY2hyb25vbG9naWNhbCB0cmFpbi90ZXN0IHNwbGl0XG4iLAogICAgIlxuIiwKICAgICJBdCBkZWNpc2lvbiB0aW1lIFxcKHRcXCksIHRoZSBzdGF0ZSB1c2VzIG9ubHkgcHJpY2VzICoqdXAgdG8gYW5kIGluY2x1ZGluZyoqIFxcKHRcXCkuIFRoZSBhZ2VudCB0aGVuIHRha2VzIGFuIGFjdGlvbiwgZWFybnMgdGhlIHJldHVybiBmcm9tIFxcKHRcXCkgdG8gXFwodCsxXFwpLCBhbmQgb2JzZXJ2ZXMgdGhlIG5leHQgc3RhdGUuICoqTm8gcmFuZG9tIHRyYWluL3Rlc3Qgc2h1ZmZsaW5nKiouXG4iLAogICAgIlxuIiwKICAgICJUcmFpbmluZyBlbmRzIGF0IHRoZSBmaXJzdCBldmFsdWF0aW9uIGRhdGU6IHRoYXQgcHJpY2UgaXMgb2JzZXJ2ZWQgYXQgdGhlIGJvdW5kYXJ5LCBidXQgKm5vIHJldHVybiBhZnRlciB0aGF0IGJvdW5kYXJ5KiBpcyB1c2VkIGluIHRyYWluaW5nLiBFdmFsdWF0ZWQgcmV3YXJkcyBzdGFydCB3aXRoIHRoZSBuZXh0LCBnZW51aW5lbHkgdW5zZWVuIHJldHVybi4iCiAgIF0KICB9LAogIHsKICAgImNlbGxfdHlwZSI6ICJjb2RlIiwKICAgImV4ZWN1dGlvbl9jb3VudCI6IG51bGwsCiAgICJpZCI6ICJkZmVlODI2NSIsCiAgICJtZXRhZGF0YSI6IHsKICAgICJleGVjdXRpb24iOiB7CiAgICAgImlvcHViLmV4ZWN1dGVfaW5wdXQiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NTgyNjNaIiwKICAgICAiaW9wdWIuc3RhdHVzLmJ1c3kiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NTgxMDBaIiwKICAgICAiaW9wdWIuc3RhdHVzLmlkbGUiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NjI2MDNaIiwKICAgICAic2hlbGwuZXhlY3V0ZV9yZXBseSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2MjA4NVoiCiAgICB9CiAgIH0sCiAgICJvdXRwdXRzIjogW10sCiAgICJzb3VyY2UiOiBbCiAgICAiZW5naW5lPVBvcnRmb2xpb0FnZW50KHByaWNlcyxkYXRlcywqKkRFRkFVTFRTKVxuIiwKICAgICJ0cmFpbl90LHRlc3RfdD1lbmdpbmUudHJhaW5fdCxlbmdpbmUudGVzdF90XG4iLAogICAgInNob3J0X3VwLGxvbmdfdXA9ZW5naW5lLnVwNCxlbmdpbmUudXAxMlxuIiwKICAgICJXRUlHSFRTPW5wLmFycmF5KFswLDAuNSwxLjBdKVxuIiwKICAgICJkZWYgc3RhdGVfaWQodCxwcmV2aW91cyk6IHJldHVybiBlbmdpbmUuc3RhdGVfaWQodCxwcmV2aW91cylcbiIsCiAgICAicHJpbnQoZlwiVHJhaW5pbmcgd2Vla3Mge2xlbih0cmFpbl90KX07IGV2YWx1YXRpb24gd2Vla3Mge2xlbih0ZXN0X3QpfTsgMTIgc3RhdGVzIC8gMzYgYWN0aW9uIHZhbHVlc1wiKVxuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAiaWQiOiAiNjc2OWQzN2IiLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyAzLiBUcmFpbiB0aGUgUS1sZWFybmluZyBwb2xpY3lcbiIsCiAgICAiXG4iLAogICAgIldlIGN5Y2xlIG92ZXIgdGhlICoqc2FtZSoqIGhpc3RvcmljYWwgdHJhaW5pbmcgZGF0ZXMgZm9yIG11bHRpcGxlIGVwaXNvZGVzLiBUaGUgUHl0aG9uIGFuZCBicm93c2VyIHZlcnNpb25zIHVzZSB0aGUgc2FtZSBzZWVkZWQgcHNldWRvcmFuZG9tIGdlbmVyYXRvciBmb3IgY29uc2lzdGVudCBleGFtcGxlcy4gUmVwbGF5cyBwcm92aWRlIGFkZGl0aW9uYWwgb3B0aW1pemF0aW9uIHBhc3NlcywgKipub3QqKiBuZXcgaW5kZXBlbmRlbnQgb2JzZXJ2YXRpb25zLiBBbiBcdTAzYjUtZ3JlZWR5IHBvbGljeSBleHBsb3JlczsgdGhlIGV2YWx1YXRpb24gcG9saWN5IGlzIGZyb3plbiBhbmQgZ3JlZWR5LiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjk3Mjk4Mzg2IiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2Mzc3M1oiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2MzQ5MVoiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc1ODY1OFoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzU3OTczWiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICIjIEVYQUNUIHNhbWUgZnVuY3Rpb24gY2FsbHMgYW5kIHBhcmFtZXRlciB2YWx1ZXMgYXMgdGhlIHN0YXRpYyB3ZWIgZGVtb1xuIiwKICAgICJlbmdpbmUuc3RlcF9tYW55KGxlbihlbmdpbmUudHJhaW5fdCkgKiBlbmdpbmUuYnVkZ2V0KVxuIiwKICAgICJRID0gbnAuYXNhcnJheShlbmdpbmUucSlcbiIsCiAgICAidHJhaW5fdmlzaXRzPW5wLmFzYXJyYXkoZW5naW5lLnZpc2l0cylcbiIsCiAgICAicHJpbnQoZlwiVHJhaW5pbmcgcGFzc2VzOiB7ZW5naW5lLnBhc3Nlc30sIGxhc3QgZ3JlZWR5IHRyYWluaW5nIHJld2FyZCB7ZW5naW5lLmdyZWVkeV9oaXN0b3J5Wy0xXTouNGZ9XCIpXG4iLAogICAgInByaW50KFwiUHl0aG9uIFEtdGFibGUgc2hhcGU6XCIsUS5zaGFwZSlcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogIjZhOGEzOWNiIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgNC4gU2hvdyB3aGF0IHRoZSBhZ2VudCBsZWFybmVkXG4iLAogICAgIlxuIiwKICAgICJBIFEtdGFibGUgaXMgaW50ZXJwcmV0YWJsZTogZm9yIGVhY2ggY29tYmluYXRpb24gb2Ygc2hvcnQgbW9tZW50dW0sIGxvbmcgbW9tZW50dW0gYW5kIHByZXZpb3VzIGFsbG9jYXRpb24sIGlkZW50aWZ5IHRoZSB0YXJnZXQgd2VpZ2h0IHdpdGggdGhlIGhpZ2hlc3QgZXN0aW1hdGVkIGFjdGlvbiB2YWx1ZS4gKipVbnZpc2l0ZWQgc3RhdGVzIHNob3VsZCBub3QgYmUgaW50ZXJwcmV0ZWQgYXMgbGVhcm5lZCBleHBlcnRpc2UuKioiCiAgIF0KICB9LAogIHsKICAgImNlbGxfdHlwZSI6ICJjb2RlIiwKICAgImV4ZWN1dGlvbl9jb3VudCI6IG51bGwsCiAgICJpZCI6ICJjNDJmYjdjMyIsCiAgICJtZXRhZGF0YSI6IHsKICAgICJleGVjdXRpb24iOiB7CiAgICAgImlvcHViLmV4ZWN1dGVfaW5wdXQiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NTk4MDBaIiwKICAgICAiaW9wdWIuc3RhdHVzLmJ1c3kiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NTk2NzNaIiwKICAgICAiaW9wdWIuc3RhdHVzLmlkbGUiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NjYxNTVaIiwKICAgICAic2hlbGwuZXhlY3V0ZV9yZXBseSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NTYxNFoiCiAgICB9CiAgIH0sCiAgICJvdXRwdXRzIjogW10sCiAgICJzb3VyY2UiOiBbCiAgICAicm93cz1bXVxuIiwKICAgICJmb3IgbTQgaW4gW0ZhbHNlLFRydWVdOlxuIiwKICAgICIgICAgZm9yIG0xMiBpbiBbRmFsc2UsVHJ1ZV06XG4iLAogICAgIiAgICAgICAgZm9yIHByZXZpb3VzIGluIHJhbmdlKDMpOlxuIiwKICAgICIgICAgICAgICAgICBzPSgyKmludChtNCkraW50KG0xMikpKjMrcHJldmlvdXNcbiIsCiAgICAiICAgICAgICAgICAgcm93cy5hcHBlbmQoe1wiNHdcIjpcIlVwXCIgaWYgbTQgZWxzZSBcIkRvd25cIixcIjEyd1wiOlwiVXBcIiBpZiBtMTIgZWxzZSBcIkRvd25cIixcInByZXZpb3VzXCI6V0VJR0hUU1twcmV2aW91c10sXCJRKDAlKVwiOlFbcywwXSxcIlEoNTAlKVwiOlFbcywxXSxcIlEoMTAwJSlcIjpRW3MsMl0sXCJjaG9zZW5cIjpXRUlHSFRTW2dyZWVkeShRW3NdKV0sXCJ2aXNpdHNcIjp0cmFpbl92aXNpdHNbc119KVxuIiwKICAgICJkaXNwbGF5KHBkLkRhdGFGcmFtZShyb3dzKS5yb3VuZCg0KSlcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImM3MjZjYjBjIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgNS4gRnJlZXplIHRoZSBwb2xpY3kgYW5kIGNvbXBhcmUgYWdhaW5zdCBob25lc3QgYmVuY2htYXJrc1xuIiwKICAgICJcbiIsCiAgICAiQWxsIHN0cmF0ZWdpZXMgc3RhcnQgdGhlIGV2YWx1YXRpb24gcGVyaW9kIGZyb20gY2FzaCBhbmQgZmFjZSB0aGUgKipzYW1lKiogdHJhbnNhY3Rpb24gY29zdC4gQmVuY2htYXJrcyBpbmNsdWRlIDEwMCUgQXBwbGUsIDUwJSBBcHBsZSByZWJhbGFuY2VkIHdlZWtseSwgMTAwJSBjYXNoLCBhbmQgYSBzaW1wbGUgdHdvLWhvcml6b24gbW9tZW50dW0gcnVsZS5cbiIsCiAgICAiXG4iLAogICAgIioqRXZhbHVhdGlvbiBuZXQgcmV0dXJuKiogc3VidHJhY3RzICphY3R1YWwgbW9kZWxlZCB0cmFkaW5nIGNvc3RzKiwgKipub3QqKiB0aGUgdHJhaW5pbmctb25seSBkb3duc2lkZSBwZW5hbHR5LiBBbm51YWxpemF0aW9uICg1MiB3ZWVrcykgb24gdGhpcyB2ZXJ5IHNob3J0IHRlc3Qgd2luZG93IGlzIHVuc3RhYmxlIGFuZCBzaG91bGQgbm90IGJlIHVzZWQgZm9yIGludmVzdG1lbnQgY2xhaW1zLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjI0Yzk2ZjU1IiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NzE5NVoiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NzA5MVoiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc3NDI0NFoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzczODQyWiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICJzdHJhdGVnaWVzID0gZW5naW5lLmV2YWx1YXRlKClcbiIsCiAgICAic3VtbWFyeSA9IHBkLkRhdGFGcmFtZShbe1wiU3RyYXRlZ3lcIjp2W1wibmFtZVwiXSxcIk5ldCB0b3RhbCByZXR1cm5cIjp2W1widG90YWxSZXR1cm5cIl0sXCJNYXggZHJhd2Rvd25cIjp2W1wibWF4RHJhd2Rvd25cIl0sXCJUb3RhbCB0dXJub3ZlclwiOnZbXCJ0dXJub3ZlclwiXSxcIkFsbG9jYXRpb24gY2hhbmdlc1wiOnZbXCJjaGFuZ2VzXCJdfSBmb3IgdiBpbiBzdHJhdGVnaWVzXSlcbiIsCiAgICAiZGlzcGxheShzdW1tYXJ5LnJvdW5kKDQpKVxuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAiY29kZSIsCiAgICJleGVjdXRpb25fY291bnQiOiBudWxsLAogICAiaWQiOiAiNDIzOGY4M2EiLAogICAibWV0YWRhdGEiOiB7CiAgICAiZXhlY3V0aW9uIjogewogICAgICJpb3B1Yi5leGVjdXRlX2lucHV0IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzc1MDc0WiIsCiAgICAgImlvcHViLnN0YXR1cy5idXN5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzc0OTgzWiIsCiAgICAgImlvcHViLnN0YXR1cy5pZGxlIjogIjIwMjYtMTEtMjFUMTY6NTE6MDkuMDM1NzI4WiIsCiAgICAgInNoZWxsLmV4ZWN1dGVfcmVwbHkiOiAiMjAyNi0xMS0yMVQxNjo1MTowOS4wMzUxMDRaIgogICAgfQogICB9LAogICAib3V0cHV0cyI6IFtdLAogICAic291cmNlIjogWwogICAgImZpZywgYXggPSBwbHQuc3VicGxvdHMoZmlnc2l6ZT0oMTAsNSkpXG4iLAogICAgImZvciByZXN1bHQgaW4gc3RyYXRlZ2llczpcbiIsCiAgICAiICAgIGF4LnBsb3QobnAuYXJhbmdlKGxlbihyZXN1bHRbJ3dlYWx0aCddKSksIHJlc3VsdFsnd2VhbHRoJ10sIGxhYmVsPXJlc3VsdFsnbmFtZSddKVxuIiwKICAgICJheC5zZXQodGl0bGU9J0lsbHVzdHJhdGl2ZSBldmFsdWF0aW9uLXBlcmlvZCBwb3J0Zm9saW8gd2VhbHRoIFx1MDBiNyBzdGFydHMgYXQgMS4wMCcsXG4iLAogICAgIiAgICAgICB4bGFiZWw9J0V2YWx1YXRpb24gd2Vla3MgZWxhcHNlZCcsIHlsYWJlbD0nTmV0IHdlYWx0aCBpbmRleCcpXG4iLAogICAgImF4LmdyaWQoYWxwaGE9LjIpOyBheC5sZWdlbmQoKTsgcGx0LnRpZ2h0X2xheW91dCgpOyBwbHQuc2hvdygpXG4iLAogICAgIlxuIiwKICAgICJmaWcsIGF4ID0gcGx0LnN1YnBsb3RzKGZpZ3NpemU9KDEwLDMpKVxuIiwKICAgICJheC5zdGVwKHRlc3RfdCwgW2VudHJ5Wyd3ZWlnaHQnXSBmb3IgZW50cnkgaW4gc3RyYXRlZ2llc1swXVsnb3V0Y29tZSddXSwgd2hlcmU9J3Bvc3QnKVxuIiwKICAgICJheC5zZXQodGl0bGU9J1JMIGFnZW50IGFsbG9jYXRpb24gaW4gdGVzdCBwZXJpb2QnLCB4bGFiZWw9J0RlY2lzaW9uIHRpbWUgKHJvdyBpbmRleCknLFxuIiwKICAgICIgICAgICAgeWxhYmVsPSdBcHBsZSB3ZWlnaHQnLCB5bGltPSgtLjA1LDEuMDUpKVxuIiwKICAgICJheC5ncmlkKGFscGhhPS4yKTsgcGx0LnRpZ2h0X2xheW91dCgpOyBwbHQuc2hvdygpIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAiaWQiOiAiZGJjZjQwOTAiLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyA2LiBXb3Jrc2hvcCBkaXNjdXNzaW9uICYgbGltaXRhdGlvbnNcbiIsCiAgICAiXG4iLAogICAgIjEuICoqV2hhdCBpcyBsZWFybmVkPyoqIEluc3BlY3QgUS12YWx1ZXMgYW5kIHN0YXRlIHZpc2l0cy4gRG9lcyB0aGUgbGVhcm5lZCBwb2xpY3kgY2hhbmdlIHdpdGggdGhlIHR3byBzaWduYWxzLCBvciBtb3N0bHkgY2hvb3NlIG9uZSBhbGxvY2F0aW9uP1xuIiwKICAgICIyLiAqKkRvIHRoZSBleHRyYSBmZWF0dXJlcyBoZWxwPyoqIE1vcmUgc3RhdGVzIGNhbiBpbXByb3ZlIGV4cHJlc3NpdmVuZXNzIGJ1dCBtYWtlIHN0YXRlLWFjdGlvbiBjb3ZlcmFnZSB3b3JzZSB3aGVuIG9ubHkgfjYwIHRyYWluaW5nIGRlY2lzaW9ucyBhcmUgYXZhaWxhYmxlLlxuIiwKICAgICIzLiAqKldoYXQgZG8gY29zdHMgY2hhbmdlPyoqIFRyeSAwLCAxMCwgYW5kIDUwIGJwcyBhbmQgY29tcGFyZSB0dXJub3ZlciBhbmQgbmV0IG91dGNvbWVzLiBSZS10cmFpbiBmb3IgZWFjaCBjb3N0OyBjaGFuZ2luZyBvbmx5IGV2YWx1YXRpb24gY29zdCB3b3VsZCBtaXNtYXRjaCB0aGUgb2JqZWN0aXZlLlxuIiwKICAgICI0LiAqKldoYXQgZG9lcyBkb3duc2lkZSBwZW5hbHR5IG1lYW4/KiogQ2hhbmdlIGBET1dOU0lERV9QRU5BTFRZYCBhbmQgcmUtcnVuLiBJdCBpcyBhICp1dGlsaXR5IHByZWZlcmVuY2UqLCBub3QgYSBjYXNoIGRlZHVjdGlvbjsgYmV0dGVyIHRyYWluaW5nIHJld2FyZCBkb2VzIG5vdCBndWFyYW50ZWUgaGlnaGVyIHJlYWxpemVkIHJldHVybi5cbiIsCiAgICAiNS4gKipXaHkgbm90IFBQTyB5ZXQ/KiogMTA1IHdlZWtseSBvYnNlcnZhdGlvbnMgZG8gbm90IGp1c3RpZnkgYSBoaWdoLWNhcGFjaXR5IG5ldXJhbCBwb2xpY3ksIGFuZCB0aGUgdGFidWxhciBhZ2VudCBpcyBlYXN5IHRvIGF1ZGl0LlxuIiwKICAgICI2LiAqKldoYXQgc2hvdWxkIGEgc2VyaW91cyBmb2xsb3ctdXAgYWRkPyoqIExvbmdlciBwb2ludC1pbi10aW1lIHRvdGFsLXJldHVybiBkYXRhLCBtdWx0aXBsZSBhc3NldHMsIGEgY3JlZGlibGUgc2ltdWxhdG9yLCBjYXNoIGludGVyZXN0LCBwb3J0Zm9saW8gY29uc3RyYWludHMsIHByb3BlciBtYXJrLXRvLW1hcmtldCB3ZWlnaHRzLCB3YWxrLWZvcndhcmQgdmFsaWRhdGlvbiwgcm9idXN0IG5vbi1STCBvcHRpbWl6ZXJzLCByaXNrIG1ldHJpY3MsIGFuZCB0ZXN0cyBhY3Jvc3MgaW5kZXBlbmRlbnQgbWFya2V0IHJlZ2ltZXMuXG4iLAogICAgIlxuIiwKICAgICIqKk1ldGhvZG9sb2dpY2FsIHdhcm5pbmc6KiogVGhlIG9ic2VydmVkIHJldHVybiBzZXF1ZW5jZSBpcyBub3QgYWZmZWN0ZWQgYnkgb3VyIHRyYWRlcywgdGhlIHN0YXRlIGlzIG5vdCByaWdvcm91c2x5IE1hcmtvdiwgYW5kIG1vZGVsIHNlbGVjdGlvbiBvbiB0aGUgdGVzdCBwZXJpb2Qgd291bGQgZGVzdHJveSB0aGUgaG9sZG91dC4gUmVwZWF0ZWQgdHJhaW5pbmcgb3ZlciBhIHNob3J0IHN0YXRpYyBoaXN0b3J5IGNhbiBlbmNvdXJhZ2UgbWVtb3JpemF0aW9uLiBUaGlzIGlzICpub3QgYSBkZW1vbnN0cmF0aW9uIG9mIGVjb25vbWljIHN1cGVyaW9yaXR5IG92ZXIgY2xhc3NpY2FsIHN0b2NoYXN0aWMgY29udHJvbCouXG4iLAogICAgIlxuIiwKICAgICIqKlNvdXJjZXM6KiogVGhlIHByaWNlIENTViBpcyBkZXJpdmVkIGZyb20gUGxvdGx5J3MgcHVibGljIHNhbXBsZSBgcGxvdGx5LmV4cHJlc3MuZGF0YS5zdG9ja3MoKWAgKHdlZWtseSBub3JtYWxpemVkIDIwMThcdTIwMTMyMDE5KS4gU2NoZXJlciAoMjAyMCksIFx1MjAxY01hc2NoaW5lbGxlcyBMZXJuZW4gaW0gQXNzZXQgTWFuYWdlbWVudCxcdTIwMWQgKkFic29sdXR8cmVwb3J0KiwgcHAuIDQ2XHUyMDEzNTEsIG1vdGl2YXRlcyBleGFtaW5pbmcgZHluYW1pYyByZWJhbGFuY2luZyB3aXRoIHNpZ25hbHMgYW5kIGNvc3RzIGJ1dCBkb2VzIG5vdCBlc3RhYmxpc2ggUkwgb3V0cGVyZm9ybWFuY2UuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyA3LiBQYXJhbWV0ZXIgc2Vuc2l0aXZpdHkgKHJlYWwgbW9kZWwgcmVydW5zKVxuIiwKICAgICJcbiIsCiAgICAiRWFjaCBjb25maWd1cmF0aW9uIGNyZWF0ZXMgYSAqKm5ldyBQeXRob24gYWdlbnQqKiB3aXRoIHplcm8taW5pdGlhbGl6ZWQgUS12YWx1ZXMsIHRyYWlucyBvbiB0aGUgc2FtZSA2NCBoaXN0b3JpY2FsIHdlZWtzIHdpdGggdGhlIHNhbWUgc2VlZCwgYW5kIGV2YWx1YXRlcyB0aGUgZnJvemVuIHBvbGljeSBvbiB0aGUgc2FtZSAyOCBsYXRlciB3ZWVrcy4gUmV1c2luZyB0aGlzIGV2YWx1YXRpb24gc2V0IGZvciBtb2RlbCBzZWxlY3Rpb24gd291bGQgY29tcHJvbWlzZSBpdHMgaG9sZG91dCBzdGF0dXMuIFRoZXNlIGNvbXBhcmlzb25zIGlsbHVzdHJhdGUgc2Vuc2l0aXZpdHksIG5vdCBzdGF0aXN0aWNhbCBnZW5lcmFsaXphdGlvbi5cbiIKICAgXSwKICAgImlkIjogImFnZW50Y2VsbC0wMTMiCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAiY29kZSIsCiAgICJleGVjdXRpb25fY291bnQiOiBudWxsLAogICAib3V0cHV0cyI6IFtdLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICJleHBlcmltZW50cz17XG4iLAogICAgIiAgICBcIkJhc2VsaW5lXCI6e30sXG4iLAogICAgIiAgICBcIk5vIGNvc3RzIC8gbm8gcGVuYWx0eVwiOntcImNvc3RfYnBzXCI6MCxcInJpc2tcIjowfSxcbiIsCiAgICAiICAgIFwiSGlnaCBjb3N0IC8gcGVuYWx0eVwiOntcImNvc3RfYnBzXCI6NTAsXCJyaXNrXCI6Mn0sXG4iLAogICAgIiAgICBcIkxvdyBkaXNjb3VudFwiOntcImdhbW1hXCI6MC4xfVxuIiwKICAgICJ9XG4iLAogICAgImNvbXBhcmlzb249W11cbiIsCiAgICAiZm9yIG5hbWUsY2hhbmdlcyBpbiBleHBlcmltZW50cy5pdGVtcygpOlxuIiwKICAgICIgICAgY29uZmlnPXsqKkRFRkFVTFRTLCoqY2hhbmdlc31cbiIsCiAgICAiICAgIGFnZW50PVBvcnRmb2xpb0FnZW50KHByaWNlcyxkYXRlcywqKmNvbmZpZylcbiIsCiAgICAiICAgIGFnZW50LnN0ZXBfbWFueShsZW4oYWdlbnQudHJhaW5fdCkqYWdlbnQuYnVkZ2V0KVxuIiwKICAgICIgICAgbWV0cmljPWFnZW50LmV2YWx1YXRlKClbMF1cbiIsCiAgICAiICAgIGNvbXBhcmlzb24uYXBwZW5kKHtcIkNvbmZpZ3VyYXRpb25cIjpuYW1lLFwiTmV0IHRlc3QgcmV0dXJuXCI6bWV0cmljW1widG90YWxSZXR1cm5cIl0sXCJUZXN0IGNoYW5nZXNcIjptZXRyaWNbXCJjaGFuZ2VzXCJdLFwiRmluYWwgZ3JlZWR5IHRyYWluaW5nIHJld2FyZFwiOmFnZW50LmdyZWVkeV9oaXN0b3J5Wy0xXX0pXG4iLAogICAgImRpc3BsYXkocGQuRGF0YUZyYW1lKGNvbXBhcmlzb24pLnJvdW5kKDQpKVxuIgogICBdLAogICAiaWQiOiAiYWdlbnRjZWxsLTAxNCIKICB9CiBdLAogIm1ldGFkYXRhIjogewogICJrZXJuZWxzcGVjIjogewogICAiZGlzcGxheV9uYW1lIjogIlB5dGhvbiAzIiwKICAgImxhbmd1YWdlIjogInB5dGhvbiIsCiAgICJuYW1lIjogInB5dGhvbjMiCiAgfSwKICAibGFuZ3VhZ2VfaW5mbyI6IHsKICAgImNvZGVtaXJyb3JfbW9kZSI6IHsKICAgICJuYW1lIjogImlweXRob24iLAogICAgInZlcnNpb24iOiAzCiAgIH0sCiAgICJmaWxlX2V4dGVuc2lvbiI6ICIucHkiLAogICAibWltZXR5cGUiOiAidGV4dC94LXB5dGhvbiIsCiAgICJuYW1lIjogInB5dGhvbiIsCiAgICJuYmNvbnZlcnRfZXhwb3J0ZXIiOiAicHl0aG9uIiwKICAgInB5Z21lbnRzX2xleGVyIjogImlweXRob24zIiwKICAgInZlcnNpb24iOiAiMy4xMy41IgogIH0KIH0sCiAibmJmb3JtYXQiOiA0LAogIm5iZm9ybWF0X21pbm9yIjogNQp9">Python notebook</a> for full equations, assumptions and reproducibility. The site now runs the same actual Python module as the notebook using Pyodide; JavaScript renders the UI and animation, not the RL calculations.</p></section>
+    </div>
+
+    <div class="finance-view" data-finance-panel="4" id="finance-challenge" hidden>
+      <div class="finance-stage" data-stage="0">
+      <section class="finance-hero ch-hero">
+        <p class="eyebrow">05 · Hands-on lab · Microsoft (MSFT)</p>
+        <h1>Experiment with how your <em>agent learns.</em></h1>
+        <p class="finance-lead">The Apple walkthrough taught the Q-learning update. Now you control the learning process: train on Microsoft history, examine a market state's Q-values, compare two learned policies, and decide whether the improvement survives new data.</p>
+        <div class="ch-mission">
+          <div><small>DECISIONS</small><strong>0 · 50 · 100% Microsoft</strong></div>
+          <div><small>STATES</small><strong>12 states · 36 Q-values</strong></div>
+          <div><small>TRADING COST</small><strong>10 bps · fixed</strong></div>
+          <div><small>DOWNSIDE PENALTY</small><strong>0.5 · fixed</strong></div>
+        </div>
+        <p class="ch-caveat"><strong>No locked controls and no required guesses.</strong> Change any learning parameter, watch the actual Python agent update, and compare outcomes. The main success criterion is explaining risk–return trade-offs and policy behavior across market regimes—not beating buy-and-hold in an unusually strong market.</p>
+      </section>
+
+      <section class="finance-section ch-section">
+        <header class="ch-section-heading"><p class="eyebrow">The experiment</p><h2>Three chronological periods</h2><p>You can repeat training and inspect validation results as often as you like. The final 2023–2024 holdout is intended for one deliberate reveal, not parameter tuning.</p></header>
+        <div class="ch-periods">
+          <article class="ch-period ch-period-train"><small>TRAIN</small><h3>2013–2019</h3><p id="ch-train-weeks">Training weeks</p><span>Q-values change as experience is replayed</span></article>
+          <article class="ch-period ch-period-val"><small>VALIDATE</small><h3>2020–2022</h3><p id="ch-val-weeks">Validation weeks</p><span>Risk–return trade-offs and 2020 / 2021 / 2022 regime checks</span></article>
+          <article class="ch-period ch-period-test"><small>FINAL CHECK</small><h3>2023–2024</h3><p id="ch-final-weeks">Final weeks</p><span>Optional reveal of one selected saved run</span></article>
+        </div>
+        <p class="finance-small">Microsoft closing prices are a separate educational dataset from the Apple example. Weekly prices come from a public historical collection, with investment-grade adjustment quality unverified. Each training pass replays the same market observations.</p>
+      </section>
+
+      </div><div class="finance-stage" data-stage="1" hidden>
+        <section class="finance-section"><div class="section-heading"><div><p class="eyebrow">Portfolio MDP</p><h2>One stock, cash, and 12 states</h2></div><p>Like Apple, the agent chooses 0%, 50%, or 100% stock. The state combines two momentum signals with the previous allocation. Microsoft adds distinct training, validation, and final periods.</p></div></section>
+      </div><div class="finance-stage" data-stage="2" hidden>
+      <section class="finance-section ch-section ch-config" id="challenge-lab">
+        <header class="ch-section-heading"><p class="eyebrow">01 · Explore</p><h2>Set the learning process. Then press Play.</h2><p>Learning rate, future-reward weighting, exploration and training passes are yours to choose. Change a setting and the agent resets, ready for a new experiment. No prediction is required.</p></header>
+        <div class="ch-workspace">
+          <aside class="ch-settings">
+            <label class="ch-slider"><span>Learning rate α <output id="ch-alpha-out">0.15</output></span><input id="ch-alpha" type="range" min="0.02" max="0.50" step="0.01" value="0.15"><small>How strongly a new TD error updates the current Q-value</small></label>
+            <label class="ch-slider"><span>Discount factor γ <output id="ch-gamma-out">0.90</output></span><input id="ch-gamma" type="range" min="0" max="0.99" step="0.01" value="0.90"><small>How much future estimated rewards affect today's action values</small></label>
+            <label class="ch-slider"><span>Starting exploration ε <output id="ch-epsilon-out">0.25</output></span><input id="ch-epsilon" type="range" min="0" max="0.80" step="0.01" value="0.25"><small>Chance of random action, linearly decaying toward 3%</small></label>
+            <div class="ch-fields">
+              <label><span>Training passes</span><select id="ch-budget"><option>25</option><option>50</option><option selected>100</option><option>200</option><option>300</option></select></label>
+              <label><span>Playback speed</span><select id="ch-speed"><option value="25">Slow · see weekly updates</option><option value="350" selected>Normal · live</option><option value="1500">Fast · overview</option></select></label>
+            </div>
+            <div class="ch-buttons"><button type="button" class="button primary" id="ch-start" disabled>▶ Start learning</button><button type="button" class="button secondary" id="ch-pause" disabled>Pause</button><button type="button" class="button secondary" id="ch-week" disabled>Step 1 week</button><button type="button" class="button ghost" id="ch-reset">Reset</button></div>
+            <button type="button" class="button secondary" id="ch-defaults">Restore reference settings</button>
+            <p class="finance-small" id="ch-runtime" role="status">Loading Python engine…</p>
+            <div class="ch-experiment-note">Changing the learning parameters does not change Microsoft's returns, trading costs, or reward objective. This is essential for an interpretable experiment.</div>
+          </aside>
+          <div class="ch-live">
+            <div class="ch-live-top"><div><p class="eyebrow">Live Python · Q-learning</p><h3 id="ch-live-title">Ready to learn</h3></div><strong id="ch-passes">0 / 100</strong></div>
+            <div class="ch-progress" role="progressbar" id="ch-progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="ch-progress-fill"></span></div>
+            <div class="ch-live-stats">
+              <div><small>Current pass reward</small><strong id="ch-running-reward">0</strong></div>
+              <div><small>Last complete pass</small><strong id="ch-last-reward">—</strong></div>
+              <div><small>Current exploration</small><strong id="ch-eps-live">25.0%</strong></div>
+              <div><small>Latest Q-value update</small><strong id="ch-update">—</strong></div>
+            </div>
+            <div class="ch-chart-head"><span>Training reward per pass <button id="ch-reward-help" class="ch-help" title="The training reward is the sum of weekly rewards in one pass, not compounded portfolio return.">?</button></span><span><i class="ch-dot ch-raw"></i>Exploring <i class="ch-dot ch-avg"></i>20-pass avg <i class="ch-dot ch-greedy"></i>Greedy on train</span></div>
+            <svg id="ch-training-chart" viewBox="0 0 780 265" role="img" aria-label="Q-learning training reward curves"><text x="390" y="130" text-anchor="middle" class="finance-empty-chart">Start training to draw real reward curves</text></svg>
+            <div class="ch-state-foot"><p id="ch-last-decision">No decisions yet. Press Step 1 week to watch the Bellman update.</p><p id="ch-policy">The policy starts from tied Q-values.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="finance-section ch-section ch-inspect">
+        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Follow the Q-values—not just the reward.</h2><p>Choose a market state. The plot shows the three Q-values for this exact state after every completed training pass. The policy table shows which allocation each state currently prefers.</p></header>
+        <div class="ch-inspection-top"><label for="ch-state"><strong>Inspect a state</strong><select id="ch-state" aria-label="Choose market state"></select></label><p id="ch-state-definition">Select a state to inspect short-term momentum, long-term momentum, and previous allocation.</p></div>
+        <div class="ch-visual-grid">
+          <div class="ch-live"><div class="ch-chart-head"><span><strong>Three Q-values over training</strong></span><span><i class="ch-dot ch-cash"></i>Cash <i class="ch-dot ch-half"></i>50% <i class="ch-dot ch-full"></i>100%</span></div><svg id="ch-q-chart" viewBox="0 0 780 285" role="img" aria-label="Q-value learning trajectory for selected state"><text x="390" y="145" text-anchor="middle" class="finance-empty-chart">Complete a training pass to plot Q-values</text></svg><p id="ch-state-readout" class="finance-small">Q-values start at zero, so the initial choice is a tie.</p></div>
+          <div class="ch-live"><h3 class="ch-microhead">Learned policy · all 12 states</h3><div id="ch-policy-table" class="ch-table-scroll"></div><p class="finance-small">The preferred action is the largest current Q-value. A change in that ranking is a change in the learned policy; a Q-value change alone need not change the policy.</p></div>
+        </div>
+      </section>
+
+      </div><div class="finance-stage" data-stage="3" hidden>
+      <section class="finance-section ch-section ch-validation">
+        <header class="ch-section-heading"><p class="eyebrow">03 · Evaluate and compare</p><h2>Did a different learning process produce different decisions?</h2><p>Evaluate a frozen policy on 2020–2022. Save several runs, then compare two of them side by side. There is no score target or attempt limit—though every new validation attempt makes that period less independent.</p></header>
+        <div class="ch-validate-actions"><button type="button" class="button primary" id="ch-validate" disabled>Save run + evaluate on validation</button><span id="ch-validation-status">Complete at least one training pass first.</span></div>
+        <div class="ch-hidden-results" id="ch-validation-results"><p class="finance-small">No result yet. You will compare risk, return, Sharpe, drawdown and calendar-year behavior against buy-and-hold Microsoft, 50% MSFT, cash and a momentum rule.</p></div>
+        <h3 class="ch-subheading">Your experiment notebook</h3>
+        <div class="ch-log" id="ch-log"><p class="finance-small">No saved experiments. Train with one configuration and click Save run + evaluate.</p></div>
+        <div class="ch-compare-controls"><label>Experiment A <select id="ch-compare-a"></select></label><label>Experiment B <select id="ch-compare-b"></select></label><button type="button" class="button secondary" id="ch-compare" disabled>Compare saved agents</button></div>
+        <div class="ch-hidden-results" id="ch-comparison"><p class="finance-small">Comparing two runs shows differences in learned actions, turnover, volatility, Sharpe, and yearly validation performance.</p></div>
+        <div class="ch-seed-panel"><label>Selected experiment <select id="ch-seed-run"></select></label><button type="button" class="button secondary" id="ch-seed-check" disabled>Test 3 exploration seeds</button><div id="ch-seed-result" class="finance-small">This tests whether the same hyperparameters learn stable policies when the random exploration path changes.</div></div>
+      </section>
+
+      <section class="finance-section ch-section ch-missions">
+        <header class="ch-section-heading"><p class="eyebrow">04 · Optional investigations</p><h2>Four open investigation tasks</h2><p>Use these as prompts if you want direction. An expectation that turns out wrong is useful evidence; nothing needs to be submitted or unlocked.</p></header>
+        <div class="ch-missions-grid"><article><span>01 · LEARNING DYNAMICS</span><h3>Does a high α make the learned action less stable?</h3><p>Compare α = 0.05 and α = 0.40. Inspect the same Q-value plot, not only the validation return.</p></article><article><span>02 · FUTURE REWARDS</span><h3>Does γ change the rebalancing policy?</h3><p>Compare γ = 0.10 and γ = 0.90. Which states switch their preferred allocation? What happens to turnover?</p></article><article><span>03 · REPRODUCIBILITY</span><h3>Would another exploration seed lead to a different agent?</h3><p>Use the seed test on one saved run. Does the same setup produce similar validation performance?</p></article><article><span>04 · RISK ACROSS REGIMES</span><h3>Can you reduce the 2022 loss without sitting in cash forever?</h3><p>Inspect 2020 (shock/recovery), 2021 (strong equities), and 2022 (downturn). Compare the agent with buy-and-hold and 50% MSFT using both return and drawdown. A 0% stock policy has no market risk but also no participation.</p></article></div>
+      </section>
+
+      <section class="finance-section ch-section ch-final">
+        <header class="ch-section-heading"><p class="eyebrow">05 · Optional holdout assessment</p><h2>Do your conclusions survive another market period?</h2><p>Choose a saved policy and reveal its 2023–2024 results. This is not a prize: poor final performance can be the most instructive outcome. The page permits one reveal per session to discourage tuning directly against the holdout.</p></header>
+        <div class="ch-final-layout"><div class="ch-final-card"><p class="ch-final-label">YOUR SELECTED POLICY</p><label for="ch-final-run">Choose a saved experiment</label><select id="ch-final-run"></select><button type="button" class="button primary" id="ch-final-reveal" disabled>Reveal final period for this run</button><p class="finance-small" id="ch-final-warning">No written justification is required. Try comparing two validation runs before you make this decision.</p></div><div class="ch-final-card"><h3>Holdout evaluation</h3><div id="ch-final-result" class="finance-small">Still hidden. Training and validation remain available independently of this step.</div></div></div>
+        <div class="ch-reflection"><label for="ch-reflection"><strong>Optional conclusion: which learned behavior do you trust—and why?</strong></label><textarea id="ch-reflection" rows="3" placeholder="For instance: My agent holds cash in states X and Y, but this behavior changes across seeds…"></textarea><button type="button" class="button secondary" id="ch-copy">Copy experiment summary</button></div>
+      </section>
+      </div>
+    </div>
+
+    <div class="finance-view" data-finance-panel="5" id="finance-multi-asset" hidden>
+      <div class="finance-stage" data-stage="0">
+      <section class="finance-hero ma-hero">
+        <p class="eyebrow">06 · Optional advanced challenge · equities, bonds & cash</p>
+        <h1>What changes when the agent must <em>diversify?</em></h1>
+        <p class="finance-lead">Extend tabular Q-learning from Microsoft-versus-cash to allocation between the S&amp;P 500 ETF (SPY), a long-term Treasury bond ETF (TLT), and cash. Train a genuinely different environment with 24 states and 144 action values.</p>
+        <div class="ch-mission"><div><small>MARKET SIGNALS</small><strong>4-week SPY &amp; TLT momentum</strong></div><div><small>ACTIONS</small><strong>Six allocations</strong></div><div><small>STATES</small><strong>24 states · 144 Q-values</strong></div><div><small>DATA</small><strong>Weekly 2016–2024</strong></div></div>
+        <p class="ch-caveat"><strong>Optional extension, not a harder version of the same trading game.</strong> Investigate whether adding a bond asset changes what the agent learns about downside risk. Its training reward measures weekly performance relative to a fixed 50/50 reference, but evaluation reports absolute portfolio returns after costs. Historical source prices do not include independently verified dividend adjustments. All numbers are educational price-only comparisons.</p>
+      </section>
+      </div><div class="finance-stage" data-stage="1" hidden>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">01 · Environment design</p><h2>Two risky assets, six choices and a larger state space</h2><p>At each weekly decision, the agent sees whether SPY and TLT rose over the previous four weeks and remembers its last allocation. Its action chooses new SPY and TLT weights; leftover wealth stays in zero-yield cash.</p></header>
+        <div class="ch-missions-grid"><article><span>STATE</span><h3>4 × 6 = 24 states</h3><p>Equity momentum ↑/↓, bond momentum ↑/↓, and previous allocation across six choices.</p></article><article><span>ACTION</span><h3>Choose among six allocations</h3><p>Cash, all SPY, all TLT, 50/50 SPY–TLT, 50% SPY/cash, or 50% TLT/cash.</p></article><article><span>REWARD</span><h3>Net weekly reward</h3><p>Portfolio return after trading costs minus the fixed 50/50 SPY–TLT reference return and a downside penalty. Zero cash yield. The reward is not a compounded wealth return.</p></article></div>
+        <p class="ma-study-notes"><strong>Your investigation:</strong> Can a policy that has a choice of bonds and cash reduce downside exposure without giving up too much participation in recoveries? Do not assume bonds always hedge equity losses—2022 is a useful counterexample. Compare your policy to a transparent 50/50 portfolio.</p>
+      </section>
+      </div><div class="finance-stage" data-stage="2" hidden>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">02 · Train a new Python agent</p><h2>Watch how diversification changes Q-learning</h2><p>The agent learns from 2016–2019 using a benchmark-relative reward, and training restarts with a fresh Q-table when you change parameters. Each pass repeats the same historical weeks. You may pause, inspect the Q-table, and run different settings freely.</p></header>
+        <div class="ma-workspace"><aside class="ma-settings">
+          <label class="ch-slider"><span>Learning rate α <output id="ma-alpha-out">0.15</output></span><input id="ma-alpha" type="range" min="0.02" max="0.50" step="0.01" value="0.15"></label>
+          <label class="ch-slider"><span>Discount factor γ <output id="ma-gamma-out">0.90</output></span><input id="ma-gamma" type="range" min="0" max="0.99" step="0.01" value="0.90"></label>
+          <label class="ch-slider"><span>Exploration ε <output id="ma-epsilon-out">0.25</output></span><input id="ma-epsilon" type="range" min="0" max="0.80" step="0.01" value="0.25"></label>
+          <label><strong>Training passes</strong><select id="ma-budget"><option>25</option><option selected>100</option><option>250</option><option>400</option></select></label>
+          <label><strong>Playback</strong><select id="ma-speed"><option value="20">Slow · individual weeks</option><option value="350" selected>Normal</option><option value="1200">Fast</option></select></label>
+          <div class="ch-buttons"><button class="button primary" id="ma-start" disabled>▶ Start training</button><button class="button secondary" id="ma-pause" disabled>Pause</button><button class="button secondary" id="ma-step" disabled>Step 1 week</button><button class="button ghost" id="ma-reset">Reset</button></div>
+          <p class="finance-small" id="ma-runtime" role="status">Waiting for Python runtime…</p>
+        </aside><article class="ma-console">
+          <div class="ch-live-top"><div><p class="eyebrow">Live Python · Q-learning</p><h3 id="ma-title">Ready to learn</h3></div><strong id="ma-passes">0 / 100</strong></div>
+          <div class="ch-progress" role="progressbar" id="ma-progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="ma-progress-fill"></span></div>
+          <div class="ma-run-status"><div><small>Current reward</small><strong id="ma-reward">0.000</strong></div><div><small>Latest pass reward</small><strong id="ma-last-reward">—</strong></div><div><small>Last Q update</small><strong id="ma-q-update">—</strong></div></div>
+          <div class="ch-chart-head"><span>Reward per completed training pass</span><span><i class="ch-dot ch-raw"></i>Exploring agent <i class="ch-dot ch-full"></i>Greedy training</span></div>
+          <svg id="ma-reward-chart" viewBox="0 0 780 265" aria-label="Multi-asset reward versus training passes" role="img"></svg>
+          <p class="finance-small" id="ma-last-decision">Step through a week to see an action and its Q-learning update.</p>
+        </article></div>
+      </section>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">03 · Inspect the policy</p><h2>What allocation does the agent prefer?</h2><p>Select a state and watch all six Q-values evolve across completed training passes. Different market signals and previous holdings may generate different allocation choices.</p></header>
+        <div class="ma-selected"><label for="ma-state"><strong>Market state</strong></label><select id="ma-state"></select><span class="finance-small" id="ma-best">No training yet.</span></div>
+        <div class="ma-panel"><div class="ch-chart-head"><span>Actual Q-values · selected state</span><span>Six allocation choices</span></div><svg id="ma-q-chart" viewBox="0 0 780 265" aria-label="Six learned Q-values over training passes" role="img"></svg><div id="ma-action-values" class="finance-small"></div></div>
+      </section>
+      </div><div class="finance-stage" data-stage="3" hidden>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">04 · Compare risk and regimes</p><h2>Did diversification help in 2020, 2021 or 2022?</h2><p>Compare the frozen agent with 100% SPY, 100% TLT, a fixed 50/50 portfolio, and cash. Returns, drawdowns and volatility are evaluated on the same observations and fixed 10 bps rebalancing-cost rule.</p></header>
+        <button class="button primary" id="ma-validate" disabled>Evaluate 2020–2022</button>
+        <div class="ch-hidden-results" id="ma-validation"><p class="finance-small">Complete a training pass and evaluate. The goal is to investigate trade-offs, not to beat SPY in every period.</p></div>
+        <div id="ma-run-log" class="ch-hidden-results"><p class="finance-small">No saved validation experiments yet.</p></div>
+        <p class="ma-study-notes"><strong>Optional challenge:</strong> Compare the learned policy with a simple 50/50 SPY–TLT allocation. Does the agent avoid the simultaneous equity-and-bond drawdown in 2022? If not, what does that tell you about four-week signals and model-free learning?</p>
+      </section>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">05 · Optional holdout</p><h2>Check your conclusions in 2023–2024</h2><p>The final period is revealed only on request. It is not an opportunity to continuously optimize new parameters against already-seen outcomes.</p></header>
+        <button class="button secondary" id="ma-final" disabled>Reveal multi-asset final period once</button>
+        <div class="ch-hidden-results" id="ma-final-result">Still hidden. Build an explanation from the validation regimes first.</div>
+        <p class="finance-small">Source: <a href="https://github.com/m-khut/etf-analaysis" target="_blank" rel="noopener">m-khut/etf-analaysis historical ETF closes</a>. These are price-only observations, not verified dividend-adjusted total returns; the model also ignores taxes, spreads, interest on cash, portfolio weight drift and intraday execution. This is a teaching simulation.</p>
+      </section>
+      <section class="finance-section ma-section finance-preview"><div class="panel finance-math-note"><span class="finance-step">A look ahead</span><h3>What if we observed many more signals?</h3><p>Two momentum signs and the previous choice make 24 states here. Adding many continuous indicators quickly makes a Q-table hard to fill from experience. A deep Q-network can approximate action values with a neural network. That is a preview of a later topic, not the model running in this workshop.</p><a class="button secondary" href="coding.html">See the coding preview</a></div></section>
+      </div>
+    </div>
+    <div class="finance-pager" aria-label="Case study navigation">
+      <button type="button" id="finance-prev" class="button secondary">← Previous</button>
+      <span id="finance-view-count" role="status" aria-live="polite">Apple · Overview</span>
+      <button type="button" id="finance-next" class="button primary">Next: Portfolio MDP</button>
+    </div>
+  </main>
+  <footer><strong>Reinforcement Learning Workshop</strong><span><a href="index.html">Basics</a> · <a href="coding.html">Coding notebooks</a> · Finance module by Kai and Jakob</span></footer>
+<script>/* Weekly Microsoft prices, 2013–2024, as last available trading-day closes. */
+const CHALLENGE_MARKET_DATA = [{"date":"2013-01-04","close":21.69},{"date":"2013-01-11","close":21.77},{"date":"2013-01-18","close":22.11},{"date":"2013-01-25","close":22.62},{"date":"2013-02-01","close":22.66},{"date":"2013-02-08","close":22.35},{"date":"2013-02-15","close":22.72},{"date":"2013-02-22","close":22.71},{"date":"2013-03-01","close":22.86},{"date":"2013-03-08","close":22.9},{"date":"2013-03-15","close":22.94},{"date":"2013-03-22","close":23.11},{"date":"2013-03-28","close":23.4},{"date":"2013-04-05","close":23.48},{"date":"2013-04-12","close":23.55},{"date":"2013-04-19","close":24.35},{"date":"2013-04-26","close":26.0},{"date":"2013-05-03","close":27.39},{"date":"2013-05-10","close":26.74},{"date":"2013-05-17","close":28.72},{"date":"2013-05-24","close":28.23},{"date":"2013-05-31","close":28.75},{"date":"2013-06-07","close":29.38},{"date":"2013-06-14","close":28.34},{"date":"2013-06-21","close":27.4},{"date":"2013-06-28","close":28.45},{"date":"2013-07-05","close":28.18},{"date":"2013-07-12","close":29.38},{"date":"2013-07-19","close":25.86},{"date":"2013-07-26","close":26.05},{"date":"2013-08-02","close":26.27},{"date":"2013-08-09","close":26.94},{"date":"2013-08-16","close":26.38},{"date":"2013-08-23","close":28.83},{"date":"2013-08-30","close":27.71},{"date":"2013-09-06","close":25.84},{"date":"2013-09-13","close":27.4},{"date":"2013-09-20","close":27.2},{"date":"2013-09-27","close":27.6},{"date":"2013-10-04","close":28.1},{"date":"2013-10-11","close":28.31},{"date":"2013-10-18","close":29.0},{"date":"2013-10-25","close":29.64},{"date":"2013-11-01","close":29.47},{"date":"2013-11-08","close":31.34},{"date":"2013-11-15","close":31.39},{"date":"2013-11-22","close":31.4},{"date":"2013-11-29","close":31.87},{"date":"2013-12-06","close":32.06},{"date":"2013-12-13","close":30.67},{"date":"2013-12-20","close":30.76},{"date":"2013-12-27","close":31.17},{"date":"2014-01-03","close":30.85},{"date":"2014-01-10","close":30.12},{"date":"2014-01-17","close":30.41},{"date":"2014-01-24","close":30.77},{"date":"2014-01-31","close":31.63},{"date":"2014-02-07","close":30.56},{"date":"2014-02-14","close":31.44},{"date":"2014-02-21","close":31.98},{"date":"2014-02-28","close":32.26},{"date":"2014-03-07","close":31.91},{"date":"2014-03-14","close":31.75},{"date":"2014-03-21","close":33.82},{"date":"2014-03-28","close":33.94},{"date":"2014-04-04","close":33.57},{"date":"2014-04-11","close":33.02},{"date":"2014-04-17","close":33.69},{"date":"2014-04-25","close":33.61},{"date":"2014-05-02","close":33.42},{"date":"2014-05-09","close":33.3},{"date":"2014-05-16","close":33.78},{"date":"2014-05-23","close":34.02},{"date":"2014-05-30","close":34.72},{"date":"2014-06-06","close":35.18},{"date":"2014-06-13","close":34.96},{"date":"2014-06-20","close":35.35},{"date":"2014-06-27","close":35.83},{"date":"2014-07-03","close":35.45},{"date":"2014-07-11","close":35.69},{"date":"2014-07-18","close":37.9},{"date":"2014-07-25","close":37.74},{"date":"2014-08-01","close":36.35},{"date":"2014-08-08","close":36.63},{"date":"2014-08-15","close":37.98},{"date":"2014-08-22","close":38.53},{"date":"2014-08-29","close":38.77},{"date":"2014-09-05","close":39.18},{"date":"2014-09-12","close":39.85},{"date":"2014-09-19","close":40.55},{"date":"2014-09-26","close":39.6},{"date":"2014-10-03","close":39.33},{"date":"2014-10-10","close":37.57},{"date":"2014-10-17","close":37.23},{"date":"2014-10-24","close":39.36},{"date":"2014-10-31","close":40.06},{"date":"2014-11-07","close":41.54},{"date":"2014-11-14","close":42.31},{"date":"2014-11-21","close":41.2},{"date":"2014-11-28","close":41.05},{"date":"2014-12-05","close":41.58},{"date":"2014-12-12","close":40.32},{"date":"2014-12-19","close":40.93},{"date":"2014-12-26","close":41.11},{"date":"2015-01-02","close":40.15},{"date":"2015-01-09","close":40.52},{"date":"2015-01-16","close":39.71},{"date":"2015-01-23","close":40.51},{"date":"2015-01-30","close":34.69},{"date":"2015-02-06","close":36.42},{"date":"2015-02-13","close":37.67},{"date":"2015-02-20","close":37.93},{"date":"2015-02-27","close":37.92},{"date":"2015-03-06","close":36.63},{"date":"2015-03-13","close":35.79},{"date":"2015-03-20","close":37.08},{"date":"2015-03-27","close":35.43},{"date":"2015-04-02","close":34.84},{"date":"2015-04-10","close":36.08},{"date":"2015-04-17","close":35.99},{"date":"2015-04-24","close":41.4},{"date":"2015-05-01","close":42.08},{"date":"2015-05-08","close":41.29},{"date":"2015-05-15","close":41.77},{"date":"2015-05-22","close":40.82},{"date":"2015-05-29","close":40.79},{"date":"2015-06-05","close":40.16},{"date":"2015-06-12","close":40.01},{"date":"2015-06-19","close":40.13},{"date":"2015-06-26","close":39.4},{"date":"2015-07-02","close":38.65},{"date":"2015-07-10","close":38.83},{"date":"2015-07-17","close":40.58},{"date":"2015-07-24","close":39.99},{"date":"2015-07-31","close":40.65},{"date":"2015-08-07","close":40.68},{"date":"2015-08-14","close":40.91},{"date":"2015-08-21","close":37.74},{"date":"2015-08-28","close":38.49},{"date":"2015-09-04","close":37.33},{"date":"2015-09-11","close":38.1},{"date":"2015-09-18","close":38.1},{"date":"2015-09-25","close":38.5},{"date":"2015-10-02","close":39.93},{"date":"2015-10-09","close":41.28},{"date":"2015-10-16","close":41.63},{"date":"2015-10-23","close":46.32},{"date":"2015-10-30","close":46.12},{"date":"2015-11-06","close":48.12},{"date":"2015-11-13","close":46.3},{"date":"2015-11-20","close":47.8},{"date":"2015-11-27","close":47.57},{"date":"2015-12-04","close":49.32},{"date":"2015-12-11","close":47.68},{"date":"2015-12-18","close":47.75},{"date":"2015-12-24","close":49.1},{"date":"2015-12-31","close":48.94},{"date":"2016-01-08","close":46.16},{"date":"2016-01-15","close":44.98},{"date":"2016-01-22","close":46.12},{"date":"2016-01-29","close":48.59},{"date":"2016-02-05","close":44.24},{"date":"2016-02-12","close":44.54},{"date":"2016-02-19","close":46.04},{"date":"2016-02-26","close":45.58},{"date":"2016-03-04","close":46.22},{"date":"2016-03-11","close":47.15},{"date":"2016-03-18","close":47.52},{"date":"2016-03-24","close":48.16},{"date":"2016-04-01","close":49.37},{"date":"2016-04-08","close":48.35},{"date":"2016-04-15","close":49.44},{"date":"2016-04-22","close":46.0},{"date":"2016-04-29","close":44.3},{"date":"2016-05-06","close":44.77},{"date":"2016-05-13","close":45.38},{"date":"2016-05-20","close":45.29},{"date":"2016-05-27","close":46.81},{"date":"2016-06-03","close":46.33},{"date":"2016-06-10","close":46.05},{"date":"2016-06-17","close":44.85},{"date":"2016-06-24","close":44.58},{"date":"2016-07-01","close":45.77},{"date":"2016-07-08","close":46.79},{"date":"2016-07-15","close":48.04},{"date":"2016-07-22","close":50.61},{"date":"2016-07-29","close":50.71},{"date":"2016-08-05","close":51.85},{"date":"2016-08-12","close":51.83},{"date":"2016-08-19","close":51.87},{"date":"2016-08-26","close":52.24},{"date":"2016-09-02","close":51.91},{"date":"2016-09-09","close":50.6},{"date":"2016-09-16","close":51.54},{"date":"2016-09-23","close":51.7},{"date":"2016-09-30","close":51.85},{"date":"2016-10-07","close":52.03},{"date":"2016-10-14","close":51.69},{"date":"2016-10-21","close":53.71},{"date":"2016-10-28","close":53.89},{"date":"2016-11-04","close":52.85},{"date":"2016-11-11","close":53.13},{"date":"2016-11-18","close":54.69},{"date":"2016-11-25","close":54.86},{"date":"2016-12-02","close":53.7},{"date":"2016-12-09","close":56.16},{"date":"2016-12-16","close":56.46},{"date":"2016-12-23","close":57.31},{"date":"2016-12-30","close":56.32},{"date":"2017-01-06","close":56.95},{"date":"2017-01-13","close":56.82},{"date":"2017-01-20","close":56.86},{"date":"2017-01-27","close":59.61},{"date":"2017-02-03","close":57.71},{"date":"2017-02-10","close":58.0},{"date":"2017-02-17","close":58.92},{"date":"2017-02-24","close":58.92},{"date":"2017-03-03","close":58.58},{"date":"2017-03-10","close":59.2},{"date":"2017-03-17","close":59.15},{"date":"2017-03-24","close":59.25},{"date":"2017-03-31","close":60.05},{"date":"2017-04-07","close":59.88},{"date":"2017-04-13","close":59.22},{"date":"2017-04-21","close":60.54},{"date":"2017-04-28","close":62.42},{"date":"2017-05-05","close":62.91},{"date":"2017-05-12","close":62.35},{"date":"2017-05-19","close":62.07},{"date":"2017-05-26","close":64.15},{"date":"2017-06-02","close":65.8},{"date":"2017-06-09","close":64.48},{"date":"2017-06-16","close":64.19},{"date":"2017-06-23","close":65.3},{"date":"2017-06-30","close":63.21},{"date":"2017-07-07","close":63.69},{"date":"2017-07-14","close":66.74},{"date":"2017-07-21","close":67.67},{"date":"2017-07-28","close":66.98},{"date":"2017-08-04","close":66.65},{"date":"2017-08-11","close":66.48},{"date":"2017-08-18","close":66.83},{"date":"2017-08-25","close":67.13},{"date":"2017-09-01","close":68.16},{"date":"2017-09-08","close":68.2},{"date":"2017-09-15","close":69.43},{"date":"2017-09-22","close":68.6},{"date":"2017-09-29","close":68.67},{"date":"2017-10-06","close":70.06},{"date":"2017-10-13","close":71.44},{"date":"2017-10-20","close":72.65},{"date":"2017-10-27","close":77.26},{"date":"2017-11-03","close":77.57},{"date":"2017-11-10","close":77.32},{"date":"2017-11-17","close":76.34},{"date":"2017-11-24","close":77.14},{"date":"2017-12-01","close":78.07},{"date":"2017-12-08","close":77.98},{"date":"2017-12-15","close":80.47},{"date":"2017-12-22","close":79.23},{"date":"2017-12-29","close":79.25},{"date":"2018-01-05","close":81.71},{"date":"2018-01-12","close":83.02},{"date":"2018-01-19","close":83.39},{"date":"2018-01-26","close":87.15},{"date":"2018-02-02","close":85.04},{"date":"2018-02-09","close":81.7},{"date":"2018-02-16","close":85.64},{"date":"2018-02-23","close":87.56},{"date":"2018-03-02","close":86.62},{"date":"2018-03-09","close":89.87},{"date":"2018-03-16","close":88.06},{"date":"2018-03-23","close":81.15},{"date":"2018-03-29","close":84.96},{"date":"2018-04-06","close":83.99},{"date":"2018-04-13","close":86.64},{"date":"2018-04-20","close":88.43},{"date":"2018-04-27","close":89.2},{"date":"2018-05-04","close":88.58},{"date":"2018-05-11","close":90.95},{"date":"2018-05-18","close":90.09},{"date":"2018-05-25","close":91.96},{"date":"2018-06-01","close":94.23},{"date":"2018-06-08","close":95.01},{"date":"2018-06-15","close":93.61},{"date":"2018-06-22","close":93.87},{"date":"2018-06-29","close":92.19},{"date":"2018-07-06","close":94.57},{"date":"2018-07-13","close":98.57},{"date":"2018-07-20","close":99.35},{"date":"2018-07-27","close":100.67},{"date":"2018-08-03","close":101.01},{"date":"2018-08-10","close":101.9},{"date":"2018-08-17","close":100.96},{"date":"2018-08-24","close":101.73},{"date":"2018-08-31","close":105.42},{"date":"2018-09-07","close":101.55},{"date":"2018-09-14","close":106.4},{"date":"2018-09-21","close":107.23},{"date":"2018-09-28","close":107.34},{"date":"2018-10-05","close":105.23},{"date":"2018-10-12","close":102.83},{"date":"2018-10-19","close":101.98},{"date":"2018-10-26","close":100.38},{"date":"2018-11-02","close":99.63},{"date":"2018-11-09","close":102.83},{"date":"2018-11-16","close":102.07},{"date":"2018-11-23","close":97.15},{"date":"2018-11-30","close":104.52},{"date":"2018-12-07","close":98.8},{"date":"2018-12-14","close":99.94},{"date":"2018-12-21","close":92.59},{"date":"2018-12-28","close":94.62},{"date":"2019-01-04","close":96.07},{"date":"2019-01-11","close":96.89},{"date":"2019-01-18","close":101.52},{"date":"2019-01-25","close":101.01},{"date":"2019-02-01","close":96.88},{"date":"2019-02-08","close":99.6},{"date":"2019-02-15","close":102.0},{"date":"2019-02-22","close":105.04},{"date":"2019-03-01","close":106.52},{"date":"2019-03-08","close":104.61},{"date":"2019-03-15","close":109.72},{"date":"2019-03-22","close":110.8},{"date":"2019-03-29","close":111.64},{"date":"2019-04-05","close":113.48},{"date":"2019-04-12","close":114.49},{"date":"2019-04-18","close":116.78},{"date":"2019-04-26","close":122.95},{"date":"2019-05-03","close":122.01},{"date":"2019-05-10","close":120.34},{"date":"2019-05-17","close":121.68},{"date":"2019-05-24","close":119.94},{"date":"2019-05-31","close":117.51},{"date":"2019-06-07","close":124.84},{"date":"2019-06-14","close":125.84},{"date":"2019-06-21","close":130.13},{"date":"2019-06-28","close":127.27},{"date":"2019-07-05","close":130.22},{"date":"2019-07-12","close":131.97},{"date":"2019-07-19","close":129.8},{"date":"2019-07-26","close":134.28},{"date":"2019-08-02","close":130.07},{"date":"2019-08-09","close":130.84},{"date":"2019-08-16","close":129.76},{"date":"2019-08-23","close":127.15},{"date":"2019-08-30","close":131.41},{"date":"2019-09-06","close":132.6},{"date":"2019-09-13","close":130.9},{"date":"2019-09-20","close":132.92},{"date":"2019-09-27","close":131.29},{"date":"2019-10-04","close":131.66},{"date":"2019-10-11","close":133.15},{"date":"2019-10-18","close":130.98},{"date":"2019-10-25","close":134.15},{"date":"2019-11-01","close":137.0},{"date":"2019-11-08","close":139.14},{"date":"2019-11-15","close":142.96},{"date":"2019-11-22","close":143.08},{"date":"2019-11-29","close":144.79},{"date":"2019-12-06","close":145.15},{"date":"2019-12-13","close":147.81},{"date":"2019-12-20","close":150.56},{"date":"2019-12-27","close":152.04},{"date":"2020-01-03","close":151.72},{"date":"2020-01-10","close":154.32},{"date":"2020-01-17","close":159.83},{"date":"2020-01-24","close":157.86},{"date":"2020-01-31","close":162.82},{"date":"2020-02-07","close":175.89},{"date":"2020-02-14","close":177.28},{"date":"2020-02-21","close":171.29},{"date":"2020-02-28","close":155.38},{"date":"2020-03-06","close":154.96},{"date":"2020-03-13","close":152.33},{"date":"2020-03-20","close":131.73},{"date":"2020-03-27","close":143.58},{"date":"2020-04-03","close":147.54},{"date":"2020-04-09","close":158.39},{"date":"2020-04-17","close":171.29},{"date":"2020-04-24","close":167.41},{"date":"2020-05-01","close":167.43},{"date":"2020-05-08","close":177.13},{"date":"2020-05-15","close":175.67},{"date":"2020-05-22","close":176.49},{"date":"2020-05-29","close":176.24},{"date":"2020-06-05","close":180.04},{"date":"2020-06-12","close":180.56},{"date":"2020-06-19","close":187.69},{"date":"2020-06-26","close":188.82},{"date":"2020-07-02","close":198.37},{"date":"2020-07-10","close":205.5},{"date":"2020-07-17","close":195.12},{"date":"2020-07-24","close":193.6},{"date":"2020-07-31","close":197.17},{"date":"2020-08-07","close":204.36},{"date":"2020-08-14","close":200.91},{"date":"2020-08-21","close":205.37},{"date":"2020-08-28","close":220.69},{"date":"2020-09-04","close":206.56},{"date":"2020-09-11","close":196.7},{"date":"2020-09-18","close":193.19},{"date":"2020-09-25","close":200.36},{"date":"2020-10-02","close":198.79},{"date":"2020-10-09","close":208.06},{"date":"2020-10-16","close":211.77},{"date":"2020-10-23","close":208.47},{"date":"2020-10-30","close":195.2},{"date":"2020-11-06","close":215.69},{"date":"2020-11-13","close":208.74},{"date":"2020-11-20","close":203.37},{"date":"2020-11-27","close":208.05},{"date":"2020-12-04","close":207.2},{"date":"2020-12-11","close":206.14},{"date":"2020-12-18","close":211.29},{"date":"2020-12-24","close":215.31},{"date":"2020-12-31","close":215.0},{"date":"2021-01-08","close":212.29},{"date":"2021-01-15","close":205.55},{"date":"2021-01-22","close":218.41},{"date":"2021-01-29","close":224.22},{"date":"2021-02-05","close":234.11},{"date":"2021-02-12","close":236.81},{"date":"2021-02-19","close":233.46},{"date":"2021-02-26","close":225.14},{"date":"2021-03-05","close":224.38},{"date":"2021-03-12","close":228.41},{"date":"2021-03-19","close":223.17},{"date":"2021-03-26","close":229.11},{"date":"2021-04-01","close":234.8},{"date":"2021-04-09","close":247.88},{"date":"2021-04-16","close":252.62},{"date":"2021-04-23","close":253.01},{"date":"2021-04-30","close":244.32},{"date":"2021-05-07","close":244.59},{"date":"2021-05-14","close":240.42},{"date":"2021-05-21","close":238.08},{"date":"2021-05-28","close":242.46},{"date":"2021-06-04","close":243.54},{"date":"2021-06-11","close":250.43},{"date":"2021-06-18","close":251.93},{"date":"2021-06-25","close":257.36},{"date":"2021-07-02","close":269.62},{"date":"2021-07-09","close":269.9},{"date":"2021-07-16","close":272.63},{"date":"2021-07-23","close":281.29},{"date":"2021-07-30","close":276.67},{"date":"2021-08-06","close":281.09},{"date":"2021-08-13","close":284.38},{"date":"2021-08-20","close":296.12},{"date":"2021-08-27","close":291.61},{"date":"2021-09-03","close":292.99},{"date":"2021-09-10","close":287.71},{"date":"2021-09-17","close":291.76},{"date":"2021-09-24","close":291.25},{"date":"2021-10-01","close":281.28},{"date":"2021-10-08","close":286.87},{"date":"2021-10-15","close":295.98},{"date":"2021-10-22","close":300.79},{"date":"2021-10-29","close":322.65},{"date":"2021-11-05","close":326.97},{"date":"2021-11-12","close":327.61},{"date":"2021-11-19","close":334.44},{"date":"2021-11-26","close":321.35},{"date":"2021-12-03","close":314.84},{"date":"2021-12-10","close":333.88},{"date":"2021-12-17","close":315.61},{"date":"2021-12-23","close":326.23},{"date":"2021-12-31","close":327.82},{"date":"2022-01-07","close":306.1},{"date":"2022-01-14","close":302.36},{"date":"2022-01-21","close":288.55},{"date":"2022-01-28","close":300.47},{"date":"2022-02-04","close":298.21},{"date":"2022-02-11","close":287.58},{"date":"2022-02-18","close":281.23},{"date":"2022-02-25","close":290.39},{"date":"2022-03-04","close":283.12},{"date":"2022-03-11","close":273.55},{"date":"2022-03-18","close":293.44},{"date":"2022-03-25","close":296.62},{"date":"2022-04-01","close":302.22},{"date":"2022-04-08","close":290.06},{"date":"2022-04-14","close":273.32},{"date":"2022-04-22","close":267.65},{"date":"2022-04-29","close":271.06},{"date":"2022-05-06","close":268.34},{"date":"2022-05-13","close":255.05},{"date":"2022-05-20","close":247.26},{"date":"2022-05-27","close":267.5},{"date":"2022-06-03","close":264.35},{"date":"2022-06-10","close":247.68},{"date":"2022-06-17","close":242.45},{"date":"2022-06-24","close":262.08},{"date":"2022-07-01","close":254.13},{"date":"2022-07-08","close":262.04},{"date":"2022-07-15","close":251.33},{"date":"2022-07-22","close":254.9},{"date":"2022-07-29","close":274.85},{"date":"2022-08-05","close":276.97},{"date":"2022-08-12","close":285.78},{"date":"2022-08-19","close":280.74},{"date":"2022-08-26","close":263.02},{"date":"2022-09-02","close":251.22},{"date":"2022-09-09","close":259.46},{"date":"2022-09-16","close":240.11},{"date":"2022-09-23","close":233.42},{"date":"2022-09-30","close":228.5},{"date":"2022-10-07","close":229.81},{"date":"2022-10-14","close":224.24},{"date":"2022-10-21","close":237.54},{"date":"2022-10-28","close":231.41},{"date":"2022-11-04","close":217.2},{"date":"2022-11-11","close":242.44},{"date":"2022-11-18","close":237.33},{"date":"2022-11-25","close":243.49},{"date":"2022-12-02","close":250.9},{"date":"2022-12-09","close":241.46},{"date":"2022-12-16","close":240.74},{"date":"2022-12-23","close":234.88},{"date":"2022-12-30","close":235.95},{"date":"2023-01-06","close":221.3},{"date":"2023-01-13","close":235.37},{"date":"2023-01-20","close":236.34},{"date":"2023-01-27","close":244.15},{"date":"2023-02-03","close":254.18},{"date":"2023-02-10","close":258.85},{"date":"2023-02-17","close":254.53},{"date":"2023-02-24","close":245.81},{"date":"2023-03-03","close":251.8},{"date":"2023-03-10","close":245.19},{"date":"2023-03-17","close":275.61},{"date":"2023-03-24","close":276.73},{"date":"2023-03-31","close":284.36},{"date":"2023-04-06","close":287.61},{"date":"2023-04-14","close":282.23},{"date":"2023-04-21","close":281.85},{"date":"2023-04-28","close":303.06},{"date":"2023-05-05","close":306.4},{"date":"2023-05-12","close":304.74},{"date":"2023-05-19","close":314.67},{"date":"2023-05-26","close":329.05},{"date":"2023-06-02","close":331.53},{"date":"2023-06-09","close":323.02},{"date":"2023-06-16","close":338.38},{"date":"2023-06-23","close":331.16},{"date":"2023-06-30","close":336.62},{"date":"2023-07-07","close":333.33},{"date":"2023-07-14","close":341.26},{"date":"2023-07-21","close":339.81},{"date":"2023-07-28","close":334.47},{"date":"2023-08-04","close":324.0},{"date":"2023-08-11","close":317.31},{"date":"2023-08-18","close":313.49},{"date":"2023-08-25","close":319.93},{"date":"2023-09-01","close":325.56},{"date":"2023-09-08","close":331.12},{"date":"2023-09-15","close":327.11},{"date":"2023-09-22","close":314.02},{"date":"2023-09-29","close":312.77},{"date":"2023-10-06","close":324.17},{"date":"2023-10-13","close":324.64},{"date":"2023-10-20","close":323.59},{"date":"2023-10-27","close":326.7},{"date":"2023-11-03","close":349.47},{"date":"2023-11-10","close":366.18},{"date":"2023-11-17","close":367.1},{"date":"2023-11-24","close":374.63},{"date":"2023-12-01","close":371.73},{"date":"2023-12-08","close":371.45},{"date":"2023-12-15","close":367.98},{"date":"2023-12-22","close":371.8},{"date":"2023-12-29","close":373.25},{"date":"2024-01-05","close":365.02},{"date":"2024-01-12","close":385.59},{"date":"2024-01-19","close":395.71},{"date":"2024-01-26","close":400.93},{"date":"2024-02-02","close":408.17},{"date":"2024-02-09","close":417.43},{"date":"2024-02-16","close":401.8},{"date":"2024-02-23","close":408.05},{"date":"2024-03-01","close":413.18},{"date":"2024-03-08","close":403.95},{"date":"2024-03-15","close":414.09},{"date":"2024-03-22","close":426.34},{"date":"2024-03-28","close":418.37},{"date":"2024-04-05","close":423.14},{"date":"2024-04-12","close":419.54},{"date":"2024-04-19","close":396.89},{"date":"2024-04-26","close":404.05},{"date":"2024-05-03","close":404.39},{"date":"2024-05-10","close":412.42},{"date":"2024-05-17","close":418.62},{"date":"2024-05-24","close":428.53},{"date":"2024-05-31","close":413.56},{"date":"2024-06-07","close":422.24},{"date":"2024-06-14","close":440.89},{"date":"2024-06-21","close":448.07},{"date":"2024-06-28","close":445.25},{"date":"2024-07-05","close":465.79},{"date":"2024-07-12","close":451.83},{"date":"2024-07-19","close":435.45},{"date":"2024-07-26","close":423.66},{"date":"2024-08-02","close":406.94},{"date":"2024-08-09","close":404.48},{"date":"2024-08-16","close":417.63},{"date":"2024-08-23","close":415.96},{"date":"2024-08-30","close":416.31},{"date":"2024-09-06","close":400.9},{"date":"2024-09-13","close":429.73},{"date":"2024-09-20","close":434.4},{"date":"2024-09-27","close":427.16},{"date":"2024-10-04","close":415.23},{"date":"2024-10-11","close":415.49},{"date":"2024-10-18","close":417.32},{"date":"2024-10-25","close":427.29},{"date":"2024-11-01","close":409.55},{"date":"2024-11-08","close":421.7},{"date":"2024-11-15","close":414.17},{"date":"2024-11-22","close":417.0},{"date":"2024-11-29","close":423.46}];
+</script>
+<script>
+/* Raw historical last-observation-per-week ETF closes, from m-khut/etf-analaysis. */
+const ETF_SPY_TLT_BYTES = "APhKMDAHXUkfMQdsSvYwB6xLujEHa0lIMgfnSF4zBwBLLTMHNUzxMgdLTjwyBzRPwDEH1k9qMgZYT5oyCNRQDDMH4k+RMwcqUYQzB6FRJDIHmVCKMgdcUPUyB/xPrDMHRVDXMgcgUrkyByRSCzQHD1KmNAesUPk0B1lPCjUHAFLpNgcRUxg4B09UDzYH3FQ4NgfQVEw3BzpV6DUHVlW4NgdeVS82B+FUDDYHTVUnNgdQU/A0B1lTozQHX1RyNQd+VLc1BwBUUDQHQFNnMweWUxM0BwZT9TIHd1F2MweKVKwvB1pVNS8HiFYyLwfQVbguB3tY5i0H6FfCLQcrWB0uB1FXiS4HwVg2LwexWGMvB5JY2i4HcVm7LgeWWXwuB29aLC8H1VsALwd6XKkvByJdny4H2VzNLQeXXFguB1pbOC8HFlwnLwfgWycvBtNaOzAIo1tCMAcAXcsvB6JdYS8HWl1rLwcXXVMwB2tePDAHYV8SMQcVX5gwB8heWzEH+V7qMQd0XuAwB5Ne8C8H7F8tMAdwYBkxB3NgZTAHpWDNMAdcX2MxB89edjEHiF+8MQfQYIMxB1JgZDIHV2GOMQdwYUwxByNivDAHXWNHMAeXYykxB29kbjAHq2QkMAf1ZBQxB9FkejAHumRfMQe0ZYgxB05nbzEHt2d9MQcbaCMyB39ovTAHPmiOMQfOahsxB5BspDAHiW0SMAfyb0cwB5lrti4HJmYSLgeval8uB09rJS4HHGk7LgfvbA8uBxxrzS4HzWTxLgbLZp4vCHRlTi8Hk2c6LwclaEYuByBocS4H6md7LgeVapMuB/1pyS0HT2q6Lgfgav4uB6tssS4HQWwGLwdSaxUvB/hpjC8HlmvzLwc3bfAvB0BtLC8H7m2qLgfIbpIuB5xuIi8HWm9CLwdPcMUvB2dxRC8HWHCJLgegcU8uBw9yvi0HkHHPLQducCgsB8trtywH6WtrLAelZ+ssBzVqwCsHgGxHLAftas4sB9Vm+iwHrWsNLQf1ZkEuB79lSC4HBl4oLwfHYEkvB5disy8HKmU9LwcWaLQuB9JnFS8HfmlALwenacsvB1lspi8HCm19LweKbVouBzZrfS8H422PLwcVbcYwB1huZDEHuXBzMAdYcesvBkpxAjAInXJdMAfbck4wB4pwuzAHqG83MQd2buoxB4drfzMHXXB2Mwf+cFozB9hyVzMHdHLhMweWdLszB3F13jIHFXRxMwf5dVszB05yUzUH6nG1NgfVcBU5B0VvBDkHPXKIOQdtdPM4B511VjUHhHRtNwdkc8E3B/tyBzkHvHPcNgdldIY2B9B1HDYHlnfoNgeueLM0B8t50DUHeHmmNgfHeto2B/96CzYH9HtQNgdJfWE1Bx5+pDUH8X1YNgc7fxQ2B6uB6jUHbYCANwetff44B8SBazgH4IN3OAdEgtQ5B7pzqzwHMnQlQQc0aSI8B2BZRz4H/mKCQQfzYNJBBqxsm0AI+G+NQQeJbrxCB3dum0EHPHIOQAfUbx9BB2hzq0AH4HbnPwe+fPs8B9V2Zj8HkHhvPwc1dY1ABvd55z8ID3z5QAesfSZBB1h9TkIHjH/MQgexglxCB5SDvj8HnITsQAfyiPA+B9GFkj8HfoJAQAcpgeU/B2mAgEAHaIKTPwd9h4k+B6mHCz8HEoe5PQeOf409B8iIRT4H4ovIPQfNihc/Bw+Olj4HeZCgPAcWjwU+BzaQET0GJJBxPQcMkp09CO6UHDsHwpJOOweQlVQ7B4+QYDsHc5fTOQdgmXc5B1uY9zcHlJToNwfblUM2B+6ZJjUHJJijNAeummI1Bn2ctzUIvaC3NQf+omY2B8qitjYHAqMoNgfkpGM2B7qijDUHFqLHNQcUpBQ2BxSlpjYHv6WXNwcUou04B6WmeTcHbKmoOAcgqj05B36o5TkH2qsCOgdLq2g6B9msujkHMK4HOgcwrc86B+GvYjoH/LDiOQcArvg5B2ysRToHZ61jOQegqcc4BwqrbDcHK66nOAcAsU04B2WzsTkHBbdSOgeHto05Bym39DkHSbPNOgcesUs8B+K3JjoHo7PrOgbUtwQ6CIi54zkHEbaSNweItYI3BxarGzgHo6zpNwdGr002Bw6sATYHn6n/NQf/qnc1B9GoyDYHF6SzNAekrSA0B9WwQjIH7LC2MwfVruAwBgOrKy8IbKbfLgfwoKkuB66gZywH7JxOLQczmEsuBzaihC4HXqBTLQdEmHEsB+qOyCsHYJj4KwfslD4tB9OX8isHcZZeLQdVmk8uB++g3y0Hg6F/LQfWpiMtB+akKCwHU55iLAc4mQ4rB9SeTyoHnJbTKQe7j0opB4aLBSgHt41zJwezi4EmBzWSZSQH9pfQJQcDk84kB6ubPSYHs5rsJgcpnTIoB/Oe1SkHoJmJKQe3ldcpB5OV6CcHY5XkJgeYlxYpB6qbsykHpJp8KQd4nq8pBxOhrikHZJ9jKAcWn/4nB9aacScH453NJwe/lj8pB1eYvSkHl5q9KQfrn40pBtefZSoIHqEMKQcEocgoB3milikHL6H5KAfHoLsoB4ajficHEqR9Jwcop9cnB+6n0CcHqqsUKAc5qV0oByitNigHT6u0JgeAr5EnB6KwvScHfLL9JgeJrrUlBxWuQSUHgqqhJAfdqzIlBz+wDSUHCK7dJAcxrVAkByKotyMH/KalIgfKpx8hB46oOSIHh6SEIAdsoPUgB82pOyIHHaxfIgcXsCwjB9qxFCMHVrNTJAfEs+4kB1W3uyYHBbl4JgeruaAmB8i2nSUHNLq0JQdzvMEkB2W+oiQHG8GHJQfIw6kkBx/DPCQHYcarJAdVyOckB+THZSUHJ8dOJAeZy7YkBlPM9iQIg8qzIweNx0UjB2zB0yIHisZ4Ige5xxgjB3TLNCMH0c6zIwfQzrIjBwHOVSMHmdC+IwcG1PskB7PUtCQHltTaIweo2CgkB7/asiQHc9ZMJAes1FMkByrQZCYHM9CaJQeH2BAmB5XbbyYHMNyxJQcU0+QmB4nbOScH+d2gJgc734EmB9LfUyUHZuKaJAdb5KskBzDi/iMHEN98Iwer6SEkB8/kMCMHn+hPIwdf67Uk";
+function decodeETFWeekly(){
+  const b=atob(ETF_SPY_TLT_BYTES),rows=[];let day=16808;
+  for(let i=0;i<b.length;i+=5){
+    if(i>0)day+=b.charCodeAt(i);
+    const spy=(b.charCodeAt(i+1)+256*b.charCodeAt(i+2))/100;
+    const tlt=(b.charCodeAt(i+3)+256*b.charCodeAt(i+4))/100;
+    rows.push({date:new Date(day*86400000).toISOString().slice(0,10),spy,tlt});
+  }
+  return rows;
+}
+const MULTI_ASSET_MARKET_DATA=decodeETFWeekly();
+</script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.29.1/full/pyodide.js" onerror="window.__pyodideDownloadFailed=true"></script>
+  <script id="finance-python-source" type="text/plain">"""Single source of truth for the RL Workshop portfolio case study.
+
+Runs in CPython (notebook / local server) and Pyodide (static GitHub Pages).
+No third-party packages; historical price observations must be passed explicitly.
+
+This is a didactic tabular Q-learning implementation, not an investment model.
+A training pass replays the SAME historical weeks, not independent experiences.
+"""
+
+from __future__ import annotations
+import json
+from math import sqrt
+
+WEIGHTS = (0.0, 0.5, 1.0)
+STRATEGY_NAMES = ("Q-learning", "100% Apple", "Weekly 50% target", "Cash", "Two-horizon rule")
+DEFAULTS = {
+    "alpha": 0.15,
+    "gamma": 0.90,
+    "epsilon": 0.25,
+    "cost_bps": 10.0,
+    "risk": 0.5,
+    "budget": 500,
+    "seed": 17,
+}
+
+
+class Mulberry32:
+    """Deterministic seeded generator (matches notebook and original JS)."""
+    def __init__(self, seed):
+        self.state = int(seed) & 0xffffffff
+
+    def random(self):
+        self.state = (self.state + 0x6D2B79F5) & 0xffffffff
+        t = self.state
+        t = ((t ^ (t >> 15)) * (t | 1)) & 0xffffffff
+        t = (t ^ ((t + (((t ^ (t >> 7)) * (t | 61)) & 0xffffffff)) & 0xffffffff)) & 0xffffffff
+        t = (t ^ (t >> 14)) & 0xffffffff
+        return t / 4294967296
+
+
+def greedy(row, rng=None):
+    best = max(row)
+    ties = [idx for idx, value in enumerate(row) if abs(value - best) < 1e-12]
+    if rng is None:
+        return ties[0]
+    return ties[int(rng.random() * len(ties))]
+
+
+class PortfolioAgent:
+    def __init__(self, prices, dates=None, **params):
+        self.prices = [round(float(x), 8) for x in prices]
+        if len(self.prices) < 20 or any(x <= 0 for x in self.prices):
+            raise ValueError("Expected at least 20 strictly positive weekly price observations")
+        self.dates = list(dates) if dates is not None else [str(i) for i in range(len(prices))]
+        if len(self.dates) != len(self.prices):
+            raise ValueError("Dates must align with price observations")
+        self.decisions = list(range(12, len(self.prices) - 1))
+        split = int(len(self.decisions) * .70)
+        self.train_t = self.decisions[:split]
+        self.test_t = self.decisions[split:]
+        self.stock_returns = [self.prices[i+1] / self.prices[i] - 1 for i in range(len(self.prices)-1)]
+        self.up4 = [i >= 4 and self.prices[i] / self.prices[i-4] > 1 for i in range(len(self.prices))]
+        self.up12 = [i >= 12 and self.prices[i] / self.prices[i-12] > 1 for i in range(len(self.prices))]
+        self.configure(**params)
+
+    def configure(self, **params):
+        p = dict(DEFAULTS)
+        p.update(params)
+        self.alpha = float(p["alpha"])
+        self.gamma = float(p["gamma"])
+        self.initial_epsilon = float(p["epsilon"])
+        self.cost_bps = float(p["cost_bps"])
+        self.risk = float(p["risk"])
+        self.budget = int(p["budget"])
+        self.seed = int(p["seed"])
+        if not (0 < self.alpha <= 1 and 0 <= self.gamma < 1 and 0 <= self.initial_epsilon <= 1
+                and self.cost_bps >= 0 and self.risk >= 0 and 1 <= self.budget <= 5000):
+            raise ValueError("Invalid training parameters")
+        self.reset()
+
+    def reset(self):
+        self.q = [[0.0, 0.0, 0.0] for _ in range(12)]
+        self.visits = [0 for _ in range(12)]
+        self.rng = Mulberry32(self.seed)
+        self.passes = 0
+        self.position = 0
+        self.prev = 0
+        self.current_reward = 0.0
+        self.history = []
+        self.greedy_history = []
+        self.last = None
+
+    def epsilon(self):
+        fraction = min(self.budget - 1, self.passes) / max(1, self.budget - 1)
+        return self.initial_epsilon + (min(0.03, self.initial_epsilon) - self.initial_epsilon) * fraction
+
+    def state_id(self, t, previous):
+        return (2 * int(self.up4[t]) + int(self.up12[t])) * 3 + previous
+
+    def reward_for(self, action, previous, t):
+        gross = WEIGHTS[action] * self.stock_returns[t]
+        turnover = abs(WEIGHTS[action] - WEIGHTS[previous])
+        trade_cost = (self.cost_bps / 10000) * turnover
+        net = gross - trade_cost
+        reward = net - self.risk * max(-gross, 0.0)
+        return dict(gross=gross, turnover=turnover, tradeCost=trade_cost, net=net, reward=reward)
+
+    def score_greedy_training(self):
+        prev, total = 0, 0.0
+        for t in self.train_t:
+            action = greedy(self.q[self.state_id(t, prev)])
+            total += self.reward_for(action, prev, t)["reward"]
+            prev = action
+        return total
+
+    def step(self):
+        if self.passes >= self.budget:
+            return False
+        t = self.train_t[self.position]
+        previous = self.prev
+        state = self.state_id(t, previous)
+        eps = self.epsilon()
+        if self.rng.random() < eps:
+            action = int(self.rng.random() * 3)
+        else:
+            action = greedy(self.q[state], self.rng)
+        measures = self.reward_for(action, previous, t)
+        terminal = self.position == len(self.train_t) - 1
+        next_state = None if terminal else self.state_id(t+1, action)
+        old_q = self.q[state][action]
+        next_best = 0.0 if terminal else max(self.q[next_state])
+        target = measures["reward"] + (0.0 if terminal else self.gamma * next_best)
+        td = target - old_q
+        self.q[state][action] += self.alpha * td
+        self.visits[state] += 1
+        self.current_reward += measures["reward"]
+        self.last = dict(t=t, s=state, a=action, oldPrev=previous, oldQ=old_q, nextBest=next_best,
+                         target=target, td=td, updated=self.q[state][action], eps=eps,
+                         sNext=next_state, last=terminal, **measures)
+        self.prev = action
+        self.position += 1
+        if terminal:
+            self.history.append(self.current_reward)
+            self.greedy_history.append(self.score_greedy_training())
+            self.passes += 1
+            self.position = 0
+            self.prev = 0
+            self.current_reward = 0.0
+        return True
+
+    def step_many(self, count):
+        for _ in range(max(0, min(100000, int(count)))):
+            if not self.step():
+                break
+        return self.snapshot()
+
+    def snapshot(self):
+        return dict(q=self.q, visits=self.visits, passes=self.passes, position=self.position,
+                    prev=self.prev, currentReward=self.current_reward,
+                    history=self.history, greedyHistory=self.greedy_history, last=self.last,
+                    budget=self.budget, trainWeeks=len(self.train_t), testWeeks=len(self.test_t))
+
+    def evaluate_strategy(self, name, policy):
+        prev = 0
+        wealth = 1.0
+        high = 1.0
+        max_dd = 0.0
+        turnover = 0.0
+        changes = 0
+        wealth_path = [wealth]
+        outcomes = []
+        weeks = []
+        for t in self.test_t:
+            action = int(policy(t, prev))
+            weight = WEIGHTS[action]
+            change = abs(weight - WEIGHTS[prev])
+            trade_cost = self.cost_bps / 10000 * change
+            gross = weight * self.stock_returns[t]
+            net = gross - trade_cost
+            turnover += change
+            if change > 1e-10:
+                changes += 1
+            wealth *= 1 + net
+            high = max(high, wealth)
+            max_dd = min(max_dd, wealth/high - 1)
+            wealth_path.append(wealth)
+            weeks.append(self.dates[t+1])
+            outcomes.append(dict(t=t, prev=prev, a=action, weight=weight, gross=gross, net=net,
+                                 tradeCost=trade_cost, change=change, nextReturn=self.stock_returns[t]))
+            prev = action
+        return dict(name=name, wealth=wealth_path, totalReturn=wealth - 1,
+                    maxDrawdown=max_dd, turnover=turnover, changes=changes,
+                    weeks=weeks, outcome=outcomes)
+
+    def evaluate(self):
+        if not self.passes:
+            raise ValueError("Complete at least one training pass before evaluating")
+        return [
+            self.evaluate_strategy("Q-learning", lambda t, prev: greedy(self.q[self.state_id(t, prev)])),
+            self.evaluate_strategy("100% Apple", lambda t, prev: 2),
+            self.evaluate_strategy("Weekly 50% target", lambda t, prev: 1),
+            self.evaluate_strategy("Cash", lambda t, prev: 0),
+            self.evaluate_strategy("Two-horizon rule", lambda t, prev: 2 if self.up4[t] and self.up12[t] else 0),
+        ]
+
+
+# API for Pyodide. Data and state live in Python, not a duplicate JavaScript engine.
+_ENGINE = None
+
+def run_command(command_json):
+    global _ENGINE
+    cmd = json.loads(command_json)
+    action = cmd["action"]
+    if action == "init":
+        _ENGINE = PortfolioAgent(cmd["prices"], cmd.get("dates"), **cmd["params"])
+        return json.dumps(_ENGINE.snapshot(), allow_nan=False)
+    if _ENGINE is None:
+        raise RuntimeError("Initialize the Python agent first")
+    if action == "reset":
+        _ENGINE.configure(**cmd["params"])
+        return json.dumps(_ENGINE.snapshot(), allow_nan=False)
+    if action == "step":
+        return json.dumps(_ENGINE.step_many(cmd.get("count", 1)), allow_nan=False)
+    if action == "evaluate":
+        return json.dumps(_ENGINE.evaluate(), allow_nan=False)
+    raise ValueError("Unknown command")
+
+class MicrosoftChallengeAgent(PortfolioAgent):
+    """Longer-horizon MSFT workshop task with a train / validation / test firewall.
+
+    Reuses exactly the original Bellman / Q-learning implementation.
+    Dates / asset data are separate from the Apple teaching example.
+    Participants may tune only alpha, gamma, epsilon, and training budget.
+    Transaction costs, reward-risk preference and seed are fixed by the task.
+    """
+    CHALLENGE_COST_BPS = 10.0
+    CHALLENGE_RISK = 0.5
+    CHALLENGE_SEED = 17
+
+    def __init__(self, prices, dates=None, **params):
+        permitted = {'alpha', 'gamma', 'epsilon', 'budget'}
+        if unknown := set(params) - permitted:
+            raise ValueError(f"Challenge parameters are fixed except {permitted}; got {unknown}")
+        super().__init__(prices, dates,
+                         cost_bps=self.CHALLENGE_COST_BPS, risk=self.CHALLENGE_RISK,
+                         seed=self.CHALLENGE_SEED, **params)
+        self.train_t = [t for t in self.decisions if self.dates[t+1][:4] <= '2019']
+        self.validation_t = [t for t in self.decisions if '2020' <= self.dates[t+1][:4] <= '2022']
+        self.test_t = [t for t in self.decisions if self.dates[t+1][:4] >= '2023']
+        if not min(map(len, (self.train_t, self.validation_t, self.test_t))) > 30:
+            raise ValueError('Microsoft challenge needs substantial nonempty train, validation and test samples')
+        self.reset()
+
+    def reset(self):
+        super().reset()
+        # One Q-table per completed training pass. This is the ACTUAL learned table,
+        # not a mock visualization or an interpolated trajectory.
+        self.q_history = []
+        self.policy_history = []
+
+    def step(self):
+        completed_before = self.passes
+        moved = super().step()
+        if moved and self.passes > completed_before:
+            self.q_history.append([row[:] for row in self.q])
+            self.policy_history.append([greedy(row) for row in self.q])
+        return moved
+
+    def validation_snapshot(self):
+        return {'trainWeeks':len(self.train_t), 'validationWeeks':len(self.validation_t),
+                'finalWeeks':len(self.test_t), 'firstTrain':self.dates[self.train_t[0]+1],
+                'lastTrain':self.dates[self.train_t[-1]+1],
+                'firstValidation':self.dates[self.validation_t[0]+1],
+                'lastValidation':self.dates[self.validation_t[-1]+1],
+                'firstTest':self.dates[self.test_t[0]+1],
+                'lastTest':self.dates[self.test_t[-1]+1]}
+
+    def evaluate_segment(self, segment):
+        if not self.passes:
+            raise ValueError('Complete at least one full training pass before evaluation')
+        if segment not in ('validation', 'final'):
+            raise ValueError('Allowed evaluation segments: validation and final')
+        indices = self.validation_t if segment == 'validation' else self.test_t
+        policies = (
+            ('RL · learned policy', lambda t, prev: greedy(self.q[self.state_id(t, prev)])),
+            ('100% Microsoft', lambda t, prev: 2),
+            ('Weekly 50% MSFT', lambda t, prev: 1),
+            ('Cash', lambda t, prev: 0),
+            ('Two-momentum rule', lambda t, prev: 2 if self.up4[t] and self.up12[t] else 0),
+        )
+        output = []
+        for name, choose in policies:
+            wealth, high, dd = 1.0, 1.0, 0.0
+            turnover, changes, path = 0.0, 0, [1.0]
+            returns, weights, prev = [], [], 0
+            for t in indices:
+                action = int(choose(t, prev))
+                w = WEIGHTS[action]
+                turn = abs(w-WEIGHTS[prev])
+                net = w*self.stock_returns[t] - self.cost_bps/10000*turn
+                wealth *= 1 + net
+                high=max(high,wealth)
+                dd = min(dd,wealth/high-1)
+                turnover += turn
+                changes += int(turn>1e-10)
+                returns.append(net)
+                weights.append(w)
+                path.append(wealth)
+                prev=action
+            total=wealth-1.0
+            report=risk_report([self.dates[t+1] for t in indices],returns,weights,changes)
+            output.append(dict(name=name, totalReturn=total, maxDrawdown=dd,
+                               turnover=turnover, changes=changes,
+                               challengeScore=total+0.5*dd,
+                               wealth=path, weeks=[self.dates[t+1] for t in indices],
+                               weights=weights, weeklyNet=returns, **report))
+        return output
+
+
+def risk_report(weeks, returns, weights, changes):
+    """Return and downside diagnostics from realized portfolio net returns.
+
+    Volatility and Sharpe use 52 weeks/year and ZERO risk-free rate for the
+    didactic comparison. None indicates zero volatility rather than infinity.
+    Yearly drawdowns reset at the beginning of each calendar year.
+    """
+    def metrics(rr, ww):
+        n=len(rr)
+        if not n:
+            return dict(totalReturn=0.0,maxDrawdown=0.0,annualVol=0.0,
+                        sharpe=None,meanExposure=0.0,positiveWeeks=0)
+        v=1.0; high=1.0; dd=0.0
+        for r in rr:
+            v*=1+r
+            high=max(high,v); dd=min(dd,v/high-1.0)
+        mu=sum(rr)/n
+        std=sqrt(sum((r-mu)**2 for r in rr)/n)
+        return dict(totalReturn=v-1,maxDrawdown=dd,annualVol=std*sqrt(52),
+                    sharpe=(sqrt(52)*mu/std if std>1e-12 else None),
+                    meanExposure=sum(ww)/n if ww else 0.0,
+                    positiveWeeks=sum(r>0 for r in rr))
+    years={}
+    for d,r,w in zip(weeks,returns,weights):
+        bucket=years.setdefault(d[:4],{'returns':[],'weights':[]})
+        bucket['returns'].append(r);bucket['weights'].append(w)
+    annual={year:metrics(g['returns'],g['weights']) for year,g in years.items()}
+    whole=metrics(returns,weights)
+    return dict(annualVol=whole['annualVol'],sharpe=whole['sharpe'],
+                yearMetrics=annual,positiveYears=sum(v['totalReturn']>0 for v in annual.values()),
+                worstYear=min((v['totalReturn'] for v in annual.values()),default=0.0))
+
+
+# Experiment Lab — all learning still delegates to PortfolioAgent.step().
+# Learning inputs can be changed freely. Market data, fees and reward preference
+# remain fixed, so a change in performance is attributable to the agent policy.
+_LAB = None
+_LAB_RUNS = []
+_LAB_FINAL_REVEALED = False
+LAB_REFERENCE = {'alpha':0.15,'gamma':0.90,'epsilon':0.25,'budget':100}
+
+
+def _lab_year_returns(strategy):
+    grouped = {}
+    for date, net in zip(strategy['weeks'], strategy['weeklyNet']):
+        year = date[:4]
+        grouped[year] = grouped.get(year, 1.0) * (1 + net)
+    return {year: value - 1 for year, value in grouped.items()}
+
+
+def _lab_summary(results):
+    return [
+        {k:r[k] for k in ('name','totalReturn','maxDrawdown','turnover','changes','challengeScore','annualVol','sharpe','yearMetrics','positiveYears','worstYear')}
+        | {'years':_lab_year_returns(r),
+           'meanEquity':sum(r['weights'])/len(r['weights']) if r['weights'] else 0.0}
+        for r in results
+    ]
+
+
+def _lab_parameters(agent):
+    return dict(alpha=agent.alpha, gamma=agent.gamma,
+                epsilon=agent.initial_epsilon, budget=agent.budget)
+
+
+def _lab_trained_copy(agent, seed):
+    new_agent = MicrosoftChallengeAgent(agent.prices, agent.dates, **_lab_parameters(agent))
+    new_agent.seed = int(seed)
+    new_agent.reset()
+    new_agent.step_many(len(new_agent.train_t) * new_agent.budget)
+    return new_agent
+
+
+def _lab_policy(q):
+    return [greedy(row) for row in q]
+
+
+def _lab_trace(agent, state):
+    if not 0 <= state < 12:
+        raise ValueError('State must be 0–11')
+    return {'state':state,'q': [table[state][:] for table in agent.q_history],
+            'policy':[item[state] for item in agent.policy_history],
+            'visits':agent.visits[state]}
+
+
+def lab_command(command_json):
+    global _LAB, _LAB_RUNS, _LAB_FINAL_REVEALED
+    cmd = json.loads(command_json)
+    action = cmd['action']
+    if action == 'init':
+        _LAB_RUNS = []
+        _LAB_FINAL_REVEALED = False
+        _LAB = MicrosoftChallengeAgent(cmd['prices'], cmd['dates'], **cmd['params'])
+        return json.dumps({'snapshot':_LAB.snapshot(), 'segments':_LAB.validation_snapshot()}, allow_nan=False)
+    if _LAB is None:
+        raise RuntimeError('Initialize the lab first')
+    if action == 'reset':
+        _LAB = MicrosoftChallengeAgent(_LAB.prices, _LAB.dates, **cmd['params'])
+        return json.dumps({'snapshot':_LAB.snapshot(), 'segments':_LAB.validation_snapshot()}, allow_nan=False)
+    if action == 'step':
+        return json.dumps(_LAB.step_many(cmd.get('count',1)), allow_nan=False)
+    if action == 'trace':
+        return json.dumps(_lab_trace(_LAB, int(cmd.get('state',0))), allow_nan=False)
+    if action == 'validation':
+        if _LAB.passes < 1:
+            raise ValueError('Complete one training pass before validation')
+        results = _LAB.evaluate_segment('validation')
+        record = {'id':len(_LAB_RUNS)+1, 'params':_lab_parameters(_LAB),
+                  'seed':_LAB.seed, 'q':[row[:] for row in _LAB.q_history[-1]],
+                  'qHistory':[[row[:] for row in table] for table in _LAB.q_history],
+                  'history':list(_LAB.history), 'greedyHistory':list(_LAB.greedy_history),
+                  'trainingPasses':_LAB.passes,
+                  'results':_lab_summary(results)}
+        _LAB_RUNS.append(record)
+        return json.dumps({'record':{k:v for k,v in record.items() if k not in ('qHistory','q','history','greedyHistory')},
+                           'policy':_lab_policy(record['q'])}, allow_nan=False)
+    if action == 'runs':
+        return json.dumps([{'id':r['id'], 'params':r['params'], 'results':r['results'],
+                            'seed':r['seed'], 'trainingPasses':r['trainingPasses']}
+                           for r in _LAB_RUNS], allow_nan=False)
+    if action == 'compare':
+        first,second=int(cmd['a']),int(cmd['b'])
+        if not(1<=first<=len(_LAB_RUNS) and 1<=second<=len(_LAB_RUNS)):
+            raise ValueError('Choose two saved experiments')
+        a,b=_LAB_RUNS[first-1],_LAB_RUNS[second-1]
+        pa,pb=_lab_policy(a['q']),_lab_policy(b['q'])
+        state=int(cmd.get('state',0))
+        if not 0<=state<12: raise ValueError('Unknown state')
+        return json.dumps({'a':{k:v for k,v in a.items() if k not in ('qHistory','q','history','greedyHistory')},
+                           'b':{k:v for k,v in b.items() if k not in ('qHistory','q','history','greedyHistory')},
+                           'policyA':pa,'policyB':pb,'qA':a['q'],'qB':b['q'],
+                           'differentStates':sum(x!=y for x,y in zip(pa,pb)),
+                           'traceA':[x[state] for x in a['qHistory']],
+                           'traceB':[x[state] for x in b['qHistory']]}, allow_nan=False)
+    if action == 'seeds':
+        index=int(cmd['runId'])
+        if not 1<=index<=len(_LAB_RUNS): raise ValueError('Unknown saved experiment')
+        rec=_LAB_RUNS[index-1]
+        output=[]
+        for seed in (17,29,43):
+            agent=MicrosoftChallengeAgent(_LAB.prices,_LAB.dates,**rec['params'])
+            agent.seed=seed
+            agent.reset()
+            agent.step_many(rec['trainingPasses']*len(agent.train_t))
+            metrics=_lab_summary(agent.evaluate_segment('validation'))[0]
+            output.append({'seed':seed,**metrics})
+        return json.dumps({'runId':index,'checks':output},allow_nan=False)
+    if action == 'final':
+        if _LAB_FINAL_REVEALED:
+            raise ValueError('Final test already revealed in this page session')
+        index=int(cmd['runId'])
+        if not 1<=index<=len(_LAB_RUNS): raise ValueError('Choose a saved experiment first')
+        rec=_LAB_RUNS[index-1]
+        agent=MicrosoftChallengeAgent(_LAB.prices,_LAB.dates,**rec['params'])
+        agent.q=[row[:] for row in rec['q']]
+        agent.passes=1
+        out=_lab_summary(agent.evaluate_segment('final'))
+        _LAB_FINAL_REVEALED=True
+        return json.dumps({'runId':index,'results':out},allow_nan=False)
+    if action == 'segments':
+        return json.dumps(_LAB.validation_snapshot())
+    raise ValueError(f'Unknown lab action: {action}')
+
+
+# ── Optional extension: two risky assets (SPY / TLT) and cash ────────────
+# Distinct real-data teaching environment. SPY/TLT source provides historical
+# closing prices WITHOUT verified dividend adjustments; metrics are price-only.
+MULTI_ACTIONS=((0.0,0.0),(1.0,0.0),(0.0,1.0),(.5,.5),(.5,0.0),(0.0,.5))
+MULTI_ACTION_NAMES=('100% cash','100% SPY','100% TLT','50/50 SPY–TLT',
+                    '50% SPY / cash','50% TLT / cash')
+
+class MultiAssetAgent:
+    def __init__(self, dates, spy, tlt, **params):
+        self.dates=list(dates)
+        self.spy=list(map(float,spy));self.tlt=list(map(float,tlt))
+        if len(self.dates)!=len(self.spy) or len(self.spy)!=len(self.tlt) or len(self.spy)<100:
+            raise ValueError('Two aligned price series and at least 100 weeks required')
+        if min(self.spy)<=0 or min(self.tlt)<=0: raise ValueError('Invalid prices')
+        self.spyret=[self.spy[i+1]/self.spy[i]-1 for i in range(len(self.spy)-1)]
+        self.tltret=[self.tlt[i+1]/self.tlt[i]-1 for i in range(len(self.tlt)-1)]
+        self.s_up=[i>=4 and self.spy[i]>self.spy[i-4] for i in range(len(self.spy))]
+        self.t_up=[i>=4 and self.tlt[i]>self.tlt[i-4] for i in range(len(self.tlt))]
+        self.decisions=list(range(4,len(self.dates)-1))
+        self.train_t=[t for t in self.decisions if self.dates[t+1][:4]<='2019']
+        self.val_t=[t for t in self.decisions if '2020'<=self.dates[t+1][:4]<='2022']
+        self.final_t=[t for t in self.decisions if '2023'<=self.dates[t+1][:4]<='2024']
+        if min(len(self.train_t),len(self.val_t),len(self.final_t))<30:
+            raise ValueError('Insufficient train/validation/test observations')
+        self.configure(**params)
+
+    def configure(self, **params):
+        p=dict(alpha=.15,gamma=.90,epsilon=.25,budget=100,seed=17)
+        p.update(params)
+        self.alpha=float(p['alpha']); self.gamma=float(p['gamma']);self.initial_epsilon=float(p['epsilon'])
+        self.budget=int(p['budget']);self.seed=int(p['seed'])
+        self.cost_bps=10.0;self.risk=0.5
+        if not(0<self.alpha<=1 and 0<=self.gamma<1 and 0<=self.initial_epsilon<=1 and 1<=self.budget<=2000):
+            raise ValueError('Invalid Q-learning parameters')
+        self.reset()
+
+    def reset(self):
+        self.q=[[0.0]*6 for _ in range(24)]
+        self.rng=Mulberry32(self.seed)
+        self.passes=0;self.position=0;self.prev=0;self.current_reward=0.0
+        self.history=[];self.greedy_history=[];self.q_trace=[];self.last=None
+
+    def state_id(self,t,prev):
+        return (int(self.s_up[t])*2 + int(self.t_up[t]))*6+prev
+
+    def eps(self):
+        f=min(self.budget-1,self.passes)/max(1,self.budget-1)
+        return self.initial_epsilon+(min(.03,self.initial_epsilon)-self.initial_epsilon)*f
+
+    def payoff(self,action,prev,t):
+        w=MULTI_ACTIONS[action];p=MULTI_ACTIONS[prev]
+        turnover=.5*(abs(w[0]-p[0])+abs(w[1]-p[1])+abs((1-sum(w))-(1-sum(p))))
+        gross=w[0]*self.spyret[t]+w[1]*self.tltret[t]
+        net=gross-.001*turnover
+        # The extra challenge asks the agent to manage *active* weekly performance
+        # relative to a fixed 50/50 reference, with an explicit downside penalty.
+        # The benchmark term depends only on realized exogenous prices, not action.
+        benchmark=.5*self.spyret[t]+.5*self.tltret[t]
+        reward=net-benchmark-.25*max(-gross,0.0)
+        return dict(reward=reward,net=net,gross=gross,benchmark=benchmark,turnover=turnover)
+
+    def greedy_training(self):
+        previous=0;result=0.0
+        for t in self.train_t:
+            action=greedy(self.q[self.state_id(t,previous)])
+            result+=self.payoff(action,previous,t)['reward'];previous=action
+        return result
+
+    def step(self):
+        if self.passes>=self.budget:return False
+        t=self.train_t[self.position];s=self.state_id(t,self.prev)
+        if self.rng.random()<self.eps():a=int(self.rng.random()*6)
+        else:a=greedy(self.q[s],self.rng)
+        measures=self.payoff(a,self.prev,t)
+        terminal=self.position==len(self.train_t)-1
+        next_s=None if terminal else self.state_id(self.train_t[self.position+1],a)
+        old=self.q[s][a];next_best=0.0 if terminal else max(self.q[next_s])
+        td=measures['reward'] + self.gamma*next_best - old
+        self.q[s][a]+=self.alpha*td
+        self.current_reward+=measures['reward']
+        self.last={'date':self.dates[t+1],'state':s,'action':a,'reward':measures['reward'],
+                   'old':old,'new':self.q[s][a],'td':td}
+        self.prev=a;self.position+=1
+        if terminal:
+            self.history.append(self.current_reward)
+            self.greedy_history.append(self.greedy_training())
+            self.q_trace.append([row[:] for row in self.q])
+            self.passes+=1;self.prev=0;self.position=0;self.current_reward=0.0
+        return True
+
+    def step_many(self,count):
+        for _ in range(min(max(0,int(count)),200000)):
+            if not self.step():break
+        return self.snapshot()
+
+    def snapshot(self):
+        return {'q':self.q,'passes':self.passes,'position':self.position,
+                'budget':self.budget,'trainWeeks':len(self.train_t),
+                'valWeeks':len(self.val_t),'testWeeks':len(self.final_t),
+                'history':self.history,'greedyHistory':self.greedy_history,
+                'last':self.last,'currentReward':self.current_reward}
+
+    def evaluate(self,segment):
+        if self.passes<1:raise ValueError('Complete a training pass first')
+        if segment not in ('validation','final'):raise ValueError('Invalid segment')
+        indices=self.val_t if segment=='validation' else self.final_t
+        policies=(('Q-learning',None),('100% SPY',(1.,0.)),('100% TLT',(0.,1.)),
+                  ('50/50 SPY–TLT',(.5,.5)),('100% cash',(0.,0.)))
+        results=[]
+        for name,static in policies:
+            prev=(0.0,0.0); prev_action=0; wealth=1.0;high=1.0;dd=0.0;changes=0;turnover=0.0
+            rr=[]; weights=[];weeks=[];alloc=[]
+            for t in indices:
+                action=greedy(self.q[self.state_id(t,prev_action)]) if static is None else None
+                w=MULTI_ACTIONS[action] if static is None else static
+                trade=.5*(abs(w[0]-prev[0])+abs(w[1]-prev[1])+
+                          abs((1-sum(w))-(1-sum(prev))))
+                net=w[0]*self.spyret[t]+w[1]*self.tltret[t]-.001*trade
+                wealth*=1+net;high=max(high,wealth);dd=min(dd,wealth/high-1)
+                turnover+=trade;changes+=int(trade>1e-10)
+                rr.append(net);weights.append(sum(w));weeks.append(self.dates[t+1]);alloc.append(w)
+                prev=w
+                if action is not None:prev_action=action
+            risk=risk_report(weeks,rr,weights,changes)
+            results.append(dict(name=name,totalReturn=wealth-1,maxDrawdown=dd,
+                                turnover=turnover,changes=changes,
+                                meanSPY=sum(w[0] for w in alloc)/len(alloc),
+                                meanTLT=sum(w[1] for w in alloc)/len(alloc),
+                                **risk))
+        return results
+
+    def trace(self,state):
+        s=int(state)
+        if not 0<=s<24:raise ValueError('Unknown state')
+        return {'state':s,'values':[q[s] for q in self.q_trace]}
+
+_MULTI=None
+_MULTI_FINAL_REVEALED=False
+
+def multi_command(command_json):
+    global _MULTI,_MULTI_FINAL_REVEALED
+    cmd=json.loads(command_json);action=cmd['action']
+    if action=='init':
+        _MULTI=MultiAssetAgent(cmd['dates'],cmd['spy'],cmd['tlt'],**cmd['params'])
+        _MULTI_FINAL_REVEALED=False
+        return json.dumps(_MULTI.snapshot(),allow_nan=False)
+    if _MULTI is None:raise RuntimeError('Initialize multi-asset lab first')
+    if action=='reset':
+        _MULTI.configure(**cmd['params'])
+        return json.dumps(_MULTI.snapshot(),allow_nan=False)
+    if action=='step':return json.dumps(_MULTI.step_many(cmd.get('count',1)),allow_nan=False)
+    if action=='trace':return json.dumps(_MULTI.trace(cmd.get('state',0)),allow_nan=False)
+    if action=='validation':return json.dumps(_MULTI.evaluate('validation'),allow_nan=False)
+    if action=='final':
+        if _MULTI_FINAL_REVEALED:raise ValueError('Final test already revealed in this session')
+        _MULTI_FINAL_REVEALED=True
+        return json.dumps(_MULTI.evaluate('final'),allow_nan=False)
+    raise ValueError('Unknown multi-asset command')
+</script>
+  <script>// Source: Plotly bundled weekly normalized stock data (2018–2019), AAPL column.
+// Price levels are illustrative; dividend/total-return adjustment is not verified.
+const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-08","aapl":1.01194283},{"date":"2018-01-15","aapl":1.01977147},{"date":"2018-01-22","aapl":0.98005711},{"date":"2018-01-29","aapl":0.91714286},{"date":"2018-02-05","aapl":0.89377145},{"date":"2018-02-12","aapl":0.98531425},{"date":"2018-02-19","aapl":1.00285714},{"date":"2018-02-26","aapl":1.00691433},{"date":"2018-03-05","aapl":1.02845712},{"date":"2018-03-12","aapl":1.01725717},{"date":"2018-03-19","aapl":0.9425143},{"date":"2018-03-26","aapl":0.95874285},{"date":"2018-04-02","aapl":0.96217146},{"date":"2018-04-09","aapl":0.99845712},{"date":"2018-04-16","aapl":0.94697143},{"date":"2018-04-23","aapl":0.9275429},{"date":"2018-04-30","aapl":1.05045715},{"date":"2018-05-07","aapl":1.07765712},{"date":"2018-05-14","aapl":1.06462856},{"date":"2018-05-21","aapl":1.07760001},{"date":"2018-05-28","aapl":1.08708574},{"date":"2018-06-04","aapl":1.09542855},{"date":"2018-06-11","aapl":1.07908569},{"date":"2018-06-18","aapl":1.0566857},{"date":"2018-06-25","aapl":1.05777143},{"date":"2018-07-02","aapl":1.07411429},{"date":"2018-07-09","aapl":1.0933143},{"date":"2018-07-16","aapl":1.09394287},{"date":"2018-07-23","aapl":1.09131426},{"date":"2018-07-30","aapl":1.18851431},{"date":"2018-08-06","aapl":1.18588571},{"date":"2018-08-13","aapl":1.2433143},{"date":"2018-08-20","aapl":1.23520002},{"date":"2018-08-27","aapl":1.30074289},{"date":"2018-09-03","aapl":1.26457145},{"date":"2018-09-10","aapl":1.27908569},{"date":"2018-09-17","aapl":1.24377145},{"date":"2018-09-24","aapl":1.28994289},{"date":"2018-10-01","aapl":1.2816571},{"date":"2018-10-08","aapl":1.26920001},{"date":"2018-10-15","aapl":1.25319999},{"date":"2018-10-22","aapl":1.23600002},{"date":"2018-10-29","aapl":1.18559998},{"date":"2018-11-05","aapl":1.16840001},{"date":"2018-11-12","aapl":1.10588571},{"date":"2018-11-19","aapl":0.98451425},{"date":"2018-11-26","aapl":1.02045715},{"date":"2018-12-03","aapl":0.96280003},{"date":"2018-12-10","aapl":0.94559998},{"date":"2018-12-17","aapl":0.86131426},{"date":"2018-12-24","aapl":0.89274283},{"date":"2018-12-31","aapl":0.84719997},{"date":"2019-01-07","aapl":0.87022853},{"date":"2019-01-14","aapl":0.89611433},{"date":"2019-01-21","aapl":0.90148569},{"date":"2019-01-28","aapl":0.95154288},{"date":"2019-02-04","aapl":0.97377145},{"date":"2019-02-11","aapl":0.97382856},{"date":"2019-02-18","aapl":0.98840001},{"date":"2019-02-25","aapl":0.99982858},{"date":"2019-03-04","aapl":0.98805717},{"date":"2019-03-11","aapl":1.06354283},{"date":"2019-03-18","aapl":1.0917143},{"date":"2019-03-25","aapl":1.08542855},{"date":"2019-04-01","aapl":1.12571429},{"date":"2019-04-08","aapl":1.13639997},{"date":"2019-04-15","aapl":1.16491429},{"date":"2019-04-22","aapl":1.16742859},{"date":"2019-04-29","aapl":1.21},{"date":"2019-05-06","aapl":1.12674282},{"date":"2019-05-13","aapl":1.08},{"date":"2019-05-20","aapl":1.02268572},{"date":"2019-05-27","aapl":1.00040004},{"date":"2019-06-03","aapl":1.08657139},{"date":"2019-06-10","aapl":1.10137146},{"date":"2019-06-17","aapl":1.13588571},{"date":"2019-06-24","aapl":1.13097142},{"date":"2019-07-01","aapl":1.16702855},{"date":"2019-07-08","aapl":1.1617143},{"date":"2019-07-15","aapl":1.15765712},{"date":"2019-07-22","aapl":1.18708574},{"date":"2019-07-29","aapl":1.16582859},{"date":"2019-08-05","aapl":1.14851431},{"date":"2019-08-12","aapl":1.18},{"date":"2019-08-19","aapl":1.15794285},{"date":"2019-08-26","aapl":1.19280003},{"date":"2019-09-02","aapl":1.21862854},{"date":"2019-09-09","aapl":1.25},{"date":"2019-09-16","aapl":1.24417141},{"date":"2019-09-23","aapl":1.25040004},{"date":"2019-09-30","aapl":1.29719997},{"date":"2019-10-07","aapl":1.34977147},{"date":"2019-10-14","aapl":1.35091431},{"date":"2019-10-21","aapl":1.40902858},{"date":"2019-10-28","aapl":1.46182861},{"date":"2019-11-04","aapl":1.48651437},{"date":"2019-11-11","aapl":1.51862863},{"date":"2019-11-18","aapl":1.49588571},{"date":"2019-11-25","aapl":1.52714286},{"date":"2019-12-02","aapl":1.54691423},{"date":"2019-12-09","aapl":1.57228568},{"date":"2019-12-16","aapl":1.59680001},{"date":"2019-12-23","aapl":1.65599993},{"date":"2019-12-30","aapl":1.67799997}];
+
+"use strict";
+/* Browser-based tabular Q-learning. Replay training weeks to reveal the mechanism.
+   500 passes are not 500 independent historical observations.
+   The held-out 28 weeks do not appear in Q-learning updates. */
+(function () {
+  const data = FINANCE_MARKET_DATA;
+  const prices = data.map(d => Number(d.aapl));
+  const WEIGHTS = [0, 0.5, 1];
+  const ACTIONS = ["0% Apple", "50% Apple", "100% Apple"];
+  const HARD_MAX_EPISODES = 500;
+  const TICK_MS = 85;
+  let playing = false, playTimer = null;
+  const START = 12;
+  const indices = Array.from({length: prices.length - 1 - START}, (_,i) => i + START);
+  const split = Math.floor(indices.length * .70);
+  const trainIndices = indices.slice(0, split), testIndices = indices.slice(split);
+  const returns = prices.slice(0,-1).map((p,i) => prices[i+1]/p - 1);
+  const up4 = prices.map((p,t) => t >= 4 && p/prices[t-4] > 1);
+  const up12 = prices.map((p,t) => t >= 12 && p/prices[t-12] > 1);
+  const $ = id => document.getElementById(id);
+  const pct = (v,d=1) => `${v*100 >= 0 ? "+" : ""}${(v*100).toFixed(d)}%`;
+  const fmt = (v,d=4) => v.toFixed(d);
+  const COLORS = ["#12674f", "#294fbe", "#b58b27", "#8c9b9f", "#e36d5c"];
+  let model = null, comparison = null, pyodideRuntime = null, pythonReady = false;
+  let runHistory = [];
+
+  // The browser is a view/controller ONLY. All Q-learning updates and evaluations run in Python.
+  const stateId = (t,previous) => ((up4[t]?2:0)+(up12[t]?1:0))*3+previous;
+  function argmax(row) {
+    const max=Math.max(...row);
+    return row.findIndex(v=>Math.abs(v-max)<1e-12);
+  }
+  const budget = () => Number($("finance-budget").value);
+  const alpha = () => Number($("alpha-slider").value);
+  const gamma = () => Number($("gamma-slider").value);
+  const initialEpsilon = () => Number($("epsilon-slider").value);
+  const epsilon = pass => initialEpsilon() + (.03-initialEpsilon())*Math.min(budget()-1,pass)/Math.max(1,budget()-1);
+  const costs = () => Number($("cost-slider").value)/10000;
+  const downsideWeight = () => Number($("risk-slider").value);
+  const settings = () => ({cost_bps:Number($("cost-slider").value),risk:downsideWeight(),
+    alpha:alpha(),gamma:gamma(),epsilon:initialEpsilon(),budget:budget(),seed:17});
+
+  function callPython(action, fields={}) {
+    if (!pythonReady || !pyodideRuntime) throw Error("Python engine is not ready");
+    pyodideRuntime.globals.set("_finance_command",JSON.stringify({action,...fields}));
+    return JSON.parse(pyodideRuntime.runPython("run_command(_finance_command)"));
+  }
+  window.financePythonReady = () => pythonReady;
+  window.financeLabCommand = function(action, fields={}) {
+    if (!pythonReady || !pyodideRuntime) throw Error("Python runtime has not loaded");
+    pyodideRuntime.globals.set("_lab_cmd", JSON.stringify({action,...fields}));
+    return JSON.parse(pyodideRuntime.runPython("lab_command(_lab_cmd)"));
+  };
+  window.financeMultiCommand = function(action, fields={}) {
+    if(!pythonReady || !pyodideRuntime) throw Error("Python engine not ready");
+    pyodideRuntime.globals.set("_multi_cmd",JSON.stringify({action,...fields}));
+    return JSON.parse(pyodideRuntime.runPython("multi_command(_multi_cmd)"));
+  };
+  window.financeChallengeCommand = function(action, fields={}) {
+    if (!pythonReady || !pyodideRuntime) throw Error("Python engine not ready");
+    pyodideRuntime.globals.set("_challenge_cmd",JSON.stringify({action,...fields}));
+    return JSON.parse(pyodideRuntime.runPython("challenge_command(_challenge_cmd)"));
+  };
+  function captureCurrentRun() {
+    const summary = comparison && comparison[0];
+    if (!summary) return;
+    const p={...settings()};
+    runHistory.push({config:p, rlNet:summary.totalReturn,
+      appleNet:comparison[1].totalReturn,
+      changes:summary.changes,
+      trainingReward:model.greedyHistory[model.greedyHistory.length-1],
+      q:Array.from(model.q,row=>row.slice())});
+    if (runHistory.length>4) runHistory=runHistory.slice(-4);
+  }
+  function renderRunHistory() {
+    const target=$("finance-run-compare");
+    if (!target) return;
+    if (!runHistory.length) {target.innerHTML="<p class='finance-small'>Evaluate a trained configuration to save it for comparison. Then change the parameters, retrain, and evaluate again.</p>";return;}
+    target.innerHTML=`<div class="finance-table-scroll"><table class="finance-table"><thead><tr><th>Saved configuration</th><th>RL test net</th><th>RL changes</th><th>Greedy train reward</th></tr></thead><tbody>${runHistory.map((r,i)=>`<tr><td>${i+1} · Cost ${r.config.cost_bps} bps · λ ${r.config.risk.toFixed(2)} · α ${r.config.alpha.toFixed(2)} · γ ${r.config.gamma.toFixed(2)}</td><td>${pct(r.rlNet)}</td><td>${r.changes}</td><td>${r.trainingReward.toFixed(3)}</td></tr>`).join("")}</tbody></table></div><p class="finance-small"><strong>Research caveat:</strong> Repeatedly comparing the same held-out period turns it into a development set. Use this only to teach sensitivity, never to claim independent performance validation.</p>`;
+  }
+  function stopPlayback() {playing=false;if(playTimer!==null){clearInterval(playTimer);playTimer=null;}}
+  function resetLearning() {
+    stopPlayback();comparison=null;
+    $("cost-output").textContent=`${Number($("cost-slider").value)} bps`;
+    $("risk-output").textContent=downsideWeight().toFixed(2);
+    $("alpha-output").textContent=alpha().toFixed(2);
+    $("gamma-output").textContent=gamma().toFixed(2);
+    $("epsilon-output").textContent=`${Math.round(initialEpsilon()*100)}%`;
+    if (!pythonReady) return;
+    model=callPython("reset",{params:settings()});
+    renderAll();
+    renderRunHistory();
+  }
+  function runWeeks(n) {
+    if (!pythonReady || playing) return;
+    comparison=null;
+    model=callPython("step",{count:n});
+    renderAll();
+  }
+  function startPlayback() {
+    if(!pythonReady||playing||model.passes>=budget()) return;
+    playing=true;comparison=null;renderAll();
+    playTimer=setInterval(()=>{
+      try {
+        model=callPython("step",{count:Number($("finance-speed").value)});
+        if(model.passes>=budget()) stopPlayback();
+        renderAll();
+      } catch(err) {stopPlayback();reportError(err);}
+    },TICK_MS);
+  }
+  function pausePlayback() {stopPlayback();renderAll();}
+  function reportError(error) {
+    console.error("Python RL runtime error:",error);
+    $("finance-status").textContent=`Python error: ${error.message || String(error)}`;
+  }
+  async function initializePython() {
+    $("finance-runtime").textContent="Loading real Python runtime (Pyodide)… requires internet for first load";
+    $("finance-train").disabled=true;
+    $("finance-step").disabled=true;
+    $("finance-evaluate").disabled=true;
+    try {
+      if(typeof loadPyodide!=="function") throw Error("Pyodide library was not downloaded. Check your internet connection.");
+      pyodideRuntime=await loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.29.1/full/"});
+      pyodideRuntime.runPython(document.getElementById("finance-python-source").textContent);
+      pythonReady=true;
+      model=callPython("init",{prices:prices, dates:data.map(x=>x.date),params:settings()});
+      $("finance-runtime").textContent="Python engine active · Pyodide · Same asset_agent.py as the notebook";
+      resetLearning();
+      document.dispatchEvent(new Event("finance-python-ready"));
+    } catch(err) {
+      pythonReady=false;reportError(err);
+      $("finance-runtime").textContent="Python runtime unavailable — internet access is required. No simulated results are displayed.";
+      $("finance-status").textContent="Python failed to load: "+String(err.message || err);
+    }
+  }
+  function choosePreset(which) {
+    const presets={baseline:{"cost-slider":10,"risk-slider":.5,"alpha-slider":.15,"gamma-slider":.9,"epsilon-slider":.25},
+      aggressive:{"cost-slider":0,"risk-slider":0,"alpha-slider":.15,"gamma-slider":.9,"epsilon-slider":.25},
+      shortHorizon:{"cost-slider":10,"risk-slider":.5,"alpha-slider":.15,"gamma-slider":.1,"epsilon-slider":.25},
+      defensive:{"cost-slider":50,"risk-slider":2,"alpha-slider":.15,"gamma-slider":.9,"epsilon-slider":.25}};
+    Object.entries(presets[which]).forEach(([id,val])=>$(id).value=String(val));
+    resetLearning();
+  }
+  function renderAll() {
+    $("stat-episodes").textContent=`${model.passes} / ${budget()}`;
+    $("stat-week-progress").textContent=`${model.position} of ${trainIndices.length} weeks in current pass`;
+    $("stat-training-reward").textContent=model.history.length?fmt(model.history[model.history.length-1],3):"—";
+    $("stat-exploration").textContent=`${(epsilon(model.passes)*100).toFixed(1)}%`;
+    $("stat-last-reward").textContent=model.last?fmt(model.last.reward,4):"—";
+    $("finance-learning-counter").textContent=`${model.passes} / ${budget()} passes`;
+    const done = model.passes*trainIndices.length + model.position;
+    const total = budget()*trainIndices.length;
+    const progress = Math.max(0,Math.min(1,done/total));
+    $("finance-progress-fill").style.width=`${(100*progress).toFixed(2)}%`;
+    $("finance-progress-label").textContent=playing ? `Training… pass ${Math.min(budget(),model.passes+1)} of ${budget()}` : model.passes>=budget() ? "Training complete" : done ? "Paused / ready to resume" : "Ready to start";
+    $("finance-progress-percent").textContent=`${(progress*100).toFixed(1)}%`;
+    $("finance-progress").setAttribute("aria-valuemax",String(budget()));
+    $("finance-progress").setAttribute("aria-valuenow",String(model.passes+model.position/trainIndices.length));
+    $("finance-train").textContent=playing ? "▶ Training in progress" : done ? "▶ Resume training" : "▶ Start training";
+    $("finance-train").disabled=!pythonReady||playing||model.passes>=budget();
+    $("finance-pause").disabled=!playing;
+    ["cost-slider","risk-slider","alpha-slider","gamma-slider","epsilon-slider","finance-budget"].forEach(id=>$(id).disabled=playing);
+    $("finance-status").textContent=model.passes>=budget()
+      ? `${budget()} replay passes complete. The agent has revisited the same ${trainIndices.length} training weeks; now freeze and evaluate.`
+      : playing ? `Learning live · ${model.passes} finished passes, week ${model.position}/${trainIndices.length}. The Q-table changes on each observed weekly transition.`
+      : model.passes||model.position ? `Paused · ${model.passes} finished passes, week ${model.position}/${trainIndices.length}. Press Resume or step through a week.`
+      : "Ready · Choose the parameters, then press Start training.";
+    $("finance-evaluate").disabled=!pythonReady||playing||!model.passes;
+    $("finance-step").disabled=!pythonReady||playing||model.passes>=budget();
+    renderLearningChart();renderUpdate();renderPolicySnapshot();renderQTable(model.q,model.visits);
+    renderComparison();
+  }
+  function renderUpdate() {
+    const x=model.last;
+    if(!x) {
+      $("finance-update-state").textContent="No transition yet. Click “Step forward one week” to observe an action, reward, and Q-value update.";
+      ["finance-q-old","finance-q-target","finance-td-error","finance-q-new"].forEach(id=>$(id).textContent="—");
+      $("finance-update-formula").textContent="Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]";
+      $("finance-live-q").innerHTML="<p class='finance-small'>All Q-values are initially zero; no preference has been learned.</p>";
+      return;
+    }
+    const signals=`${up4[x.t]?"up":"down"} / ${up12[x.t]?"up":"down"}`;
+    $("finance-update-state").innerHTML=`<strong>Week ${data[x.t].date}</strong> · Momentum (4w / 12w): ${signals} · Previous holding: ${ACTIONS[x.oldPrev]}<span>Selected <strong>${ACTIONS[x.a]}</strong> ${x.eps===0?"":`(ε = ${(x.eps*100).toFixed(1)}%)`} · Realized stock return: ${pct(returns[x.t],2)} · Trading cost: ${(x.tradeCost*10000).toFixed(1)} bps · RL reward: ${fmt(x.reward,4)}${x.last?" · End of replay": ""}</span>`;
+    $("finance-q-old").textContent=fmt(x.oldQ);
+    $("finance-q-target").textContent=fmt(x.target);
+    $("finance-td-error").textContent=fmt(x.td);
+    $("finance-q-new").textContent=fmt(x.updated);
+    $("finance-update-formula").textContent=`${fmt(x.oldQ,4)} + ${alpha().toFixed(2)} × [${fmt(x.reward,4)} + ${x.last?"0 (terminal)":`${gamma().toFixed(2)} × ${fmt(x.nextBest,4)}`} − ${fmt(x.oldQ,4)}] = ${fmt(x.updated,4)}`;
+    const q=model.q[x.s];const best=argmax(q);
+    $("finance-live-q").innerHTML=ACTIONS.map((a,i)=>`<div class="finance-q-chip ${best===i?"best":""} ${i===x.a?"just-updated":""}"><small>${a}</small><strong>${fmt(q[i])}</strong><span>${i===x.a?"Updated this step":best===i?"Current greedy choice":"Alternative"}</span></div>`).join("");
+  }
+  function renderLearningChart() {
+    const svg=$("finance-learning-chart");
+    const h=model.history,g=model.greedyHistory;
+    if(!h.length) {
+      svg.innerHTML='<line x1="69" x2="738" y1="241" y2="241" class="finance-chart-grid"/><text x="69" y="269" class="finance-chart-label">0</text><text x="738" y="269" text-anchor="end" class="finance-chart-label">'+budget()+' passes</text><text x="380" y="130" text-anchor="middle" class="finance-empty-chart">Press Start training to watch rewards evolve live</text>';
+      return;
+    }
+    const all=h.concat(g);
+    let min=Math.min(0,...all),max=Math.max(0,...all);
+    const pad=Math.max(.005,(max-min)*.12);min-=pad;max+=pad;
+    const L=69,R=738,T=20,B=241;
+    const xx=i=>L+(R-L)*(i+1)/budget();
+    const yy=v=>B-(B-T)*(v-min)/(max-min);
+    let html="";
+    for(let i=0;i<5;i++) {const v=min+(max-min)*i/4,y=yy(v);html+=`<line x1="${L}" y1="${y}" x2="${R}" y2="${y}" class="finance-chart-grid"/><text x="${L-10}" y="${y+4}" text-anchor="end" class="finance-chart-label">${v.toFixed(2)}</text>`;}
+    html+=`<text x="${L}" y="${B+21}" text-anchor="start" class="finance-chart-label">0</text><text x="${R}" y="${B+21}" text-anchor="end" class="finance-chart-label">${budget()} replay passes</text>`;
+    const cursorX=xx(h.length-1);
+    html+=`<line x1="${cursorX}" x2="${cursorX}" y1="${T}" y2="${B}" stroke="#b1bdc0" stroke-width="1.5" stroke-dasharray="5 5"/>`;
+    const avg=h.map((_,i)=>{const vals=h.slice(Math.max(0,i-19),i+1);return vals.reduce((a,b)=>a+b,0)/vals.length;});
+    for (const [values,color] of [[h,"#12674f"],[g,"#294fbe"],[avg,"#b58b27"]]) {
+      const points=values.map((v,i)=>`${xx(i).toFixed(2)},${yy(v).toFixed(2)}`).join(" ");
+      if(values.length===1) html+=`<circle cx="${xx(0)}" cy="${yy(values[0])}" r="5" fill="${color}"/>`;
+      else html+=`<polyline points="${points}" class="finance-chart-line" stroke="${color}"/>`;
+    }
+    svg.innerHTML=html;
+  }
+  function renderPolicySnapshot() {
+    const choices=[0,0,0];
+    for (const row of model.q) choices[argmax(row)]++;
+    const total=choices.reduce((a,b)=>a+b,0);
+    $("finance-policy-bars").innerHTML=choices.map((count,i)=>`<div class="finance-policy-unit"><div class="finance-policy-bar-track"><span style="width:${(100*count/total).toFixed(1)}%;background:${["#8c9b9f","#294fbe","#12674f"][i]}"></span></div><small>${ACTIONS[i]}</small><strong>${count} / ${total} states</strong></div>`).join("");
+    $("finance-policy-note").textContent=model.passes||model.position
+      ? `The greedy action is currently 0% / 50% / 100% in ${choices.join(" / ")} of the 12 market states. These counts may change as the Q-table is updated.`
+      : "Initially every Q-value is zero, so ties select 0% Apple. Watch the policy change as rewards arrive.";
+  }
+  function evaluateFrozen() {
+    if (!pythonReady || !model.passes || playing) return;
+    comparison=callPython("evaluate");
+    captureCurrentRun();
+    renderComparison();renderRunHistory();
+    $("finance-status").textContent=`Real Python policy frozen after ${model.passes} completed passes. Evaluated on ${testIndices.length} later weeks; evaluation did not update the Q-table.`;
+  }
+  function renderComparison() {
+    if(!comparison) {
+      ["stat-rl","stat-apple","stat-changes"].forEach(id=>$(id).textContent="—");
+      $("finance-wealth-chart").innerHTML='<text x="380" y="150" text-anchor="middle" class="finance-empty-chart">Train, then click “Compare frozen policy”</text>';
+      $("finance-chart-legend").innerHTML="";
+      $("finance-compare-note").textContent="No test results yet. Train the agent, then click “Compare frozen policy”. The held-out observations never update Q-values.";
+      $("finance-results-placeholder").hidden=false;
+      $("finance-results-body").innerHTML="";
+      $("finance-week").innerHTML='<option value="">Not evaluated</option>';
+      $("finance-week").disabled=true;
+      $("finance-decision").innerHTML='<p class="finance-small">No evaluated decisions yet.</p>';
+      return;
+    }
+    $("finance-results-placeholder").hidden=true;
+    $("stat-rl").textContent=pct(comparison[0].totalReturn);
+    $("stat-apple").textContent=pct(comparison[1].totalReturn);
+    $("stat-changes").textContent=String(comparison[0].changes);
+    $("finance-compare-note").textContent=`Evaluation on ${testIndices.length} held-out weekly decisions. The test returns never change the learned Q-table.`;
+    drawWealthChart(comparison);renderSummary(comparison);renderDecisionSelect();
+  }
+  function drawWealthChart(policies) {
+    const vals=policies.flatMap(x=>x.wealth);
+    let min=Math.min(...vals),max=Math.max(...vals);
+    const padding=Math.max(.02,(max-min)*.08);min-=padding;max+=padding;
+    const L=62,R=738,T=18,B=274;
+    const xx=i=>L+(R-L)*i/testIndices.length;
+    const yy=v=>B-(B-T)*(v-min)/(max-min);
+    let html="";
+    for(let n=0;n<=4;n++) {const v=min+(max-min)*n/4,y=yy(v);html+=`<line x1="${L}" y1="${y}" x2="${R}" y2="${y}" class="finance-chart-grid"/><text x="${L-9}" y="${y+4}" text-anchor="end" class="finance-chart-label">${v.toFixed(2)}</text>`;}
+    [0,Math.floor(testIndices.length/2),testIndices.length].forEach(i=>{const t=i===0?testIndices[0]:testIndices[Math.min(testIndices.length-1,i-1)]+1;html+=`<text x="${xx(i)}" y="${B+23}" text-anchor="middle" class="finance-chart-label">${data[t].date.slice(0,7)}</text>`;});
+    policies.forEach((s,i)=>{const points=s.wealth.map((v,j)=>`${xx(j).toFixed(2)},${yy(v).toFixed(2)}`).join(" ");html+=`<polyline points="${points}" class="finance-chart-line" stroke="${COLORS[i]}"/>`;});
+    $("finance-wealth-chart").innerHTML=html;
+    $("finance-chart-legend").innerHTML=policies.map((s,i)=>`<span><i style="background:${COLORS[i]}"></i>${s.name}</span>`).join("");
+  }
+  function renderSummary(policies) {
+    $("finance-results-body").innerHTML=policies.map((p,i)=>`<tr class="${i===0?"highlight":""}"><td>${p.name}</td><td>${pct(p.totalReturn)}</td><td>${pct(p.maxDrawdown)}</td><td>${p.turnover.toFixed(1)}×</td><td>${p.changes}</td></tr>`).join("");
+  }
+  function renderQTable(q,visits) {
+    let html="";
+    for(let b4=0;b4<2;b4++) for(let b12=0;b12<2;b12++) for(let prev=0;prev<3;prev++) {
+      const s=(b4*2+b12)*3+prev,best=argmax(q[s]);
+      html+=`<tr><td>${b4?"Up":"Down"}</td><td>${b12?"Up":"Down"}</td><td>${ACTIONS[prev]}</td>${q[s].map((v,i)=>`<td class="${best===i?"preferred":""}">${fmt(v)}</td>`).join("")}<td>${ACTIONS[best]}</td><td>${visits[s]}</td></tr>`;
+    }
+    $("finance-q-body").innerHTML=html;
+  }
+  function renderDecisionSelect() {
+    const select=$("finance-week"),old=Number(select.value);
+    select.disabled=false;
+    select.innerHTML=testIndices.map((t,i)=>`<option value="${i}">${data[t].date}</option>`).join("");
+    select.value=Number.isInteger(old)&&old>=0&&old<testIndices.length?old:0;
+    renderDecision();
+  }
+  function renderDecision() {
+    if(!comparison) return;
+    const i=Number($("finance-week").value)||0,x=comparison[0].outcome[i];
+    const props=[["4-week momentum",pct(prices[x.t]/prices[x.t-4]-1)],
+      ["12-week momentum",pct(prices[x.t]/prices[x.t-12]-1)],
+      ["Prior target",ACTIONS[x.prev]],["Agent action",ACTIONS[x.a]],
+      ["Next-week Apple return",pct(x.nextReturn)],["Gross portfolio return",pct(x.gross)],
+      ["Cost charged",`${(x.tradeCost*10000).toFixed(1)} bps`],["Net portfolio return",pct(x.net)]];
+    $("finance-decision").innerHTML=props.map(([k,v])=>`<div><small>${k}</small><strong>${v}</strong></div>`).join("");
+  }
+  $("finance-step").addEventListener("click",()=>{if (!playing)runWeeks(1);});
+  $("finance-train").addEventListener("click",startPlayback);
+  $("finance-pause").addEventListener("click",pausePlayback);
+  $("finance-evaluate").addEventListener("click",evaluateFrozen);
+  $("finance-reset").addEventListener("click",resetLearning);
+  ["cost-slider","risk-slider","alpha-slider","gamma-slider","epsilon-slider","finance-budget"].forEach(id=>$(id).addEventListener("input",resetLearning));
+  $("finance-week").addEventListener("change",renderDecision);
+  document.querySelectorAll("[data-finance-preset]").forEach(b=>b.addEventListener("click",()=>choosePreset(b.dataset.financePreset)));
+  renderRunHistory();
+  initializePython();
+})();
+
+"use strict";
+/* One scenario selector and the same four stages for every scenario. */
+(() => {
+  const scenarios = {apple: 0, microsoft: 4, multi: 5};
+  const stages = ["Overview", "Portfolio MDP", "Training", "Evaluation"];
+  const $ = id => document.getElementById(id);
+  const tabs = [...document.querySelectorAll("[data-finance-view]")];
+  const selectors = [...document.querySelectorAll("[data-scenario]")];
+  const panels = [...document.querySelectorAll("[data-finance-panel]")];
+  let scenario = "apple", stage = 0;
+  function show(nextScenario, nextStage, history = true) {
+    if (!(nextScenario in scenarios) || !Number.isInteger(nextStage) || nextStage < 0 || nextStage > 3) return;
+    scenario = nextScenario; stage = nextStage;
+    panels.forEach(panel => {
+      const panelStage = Number(panel.dataset.financePanel);
+      const active = scenario === "apple" ? panelStage === stage : panelStage === scenarios[scenario];
+      panel.hidden = !active; panel.classList.toggle("active", active);
+      panel.setAttribute("aria-hidden", String(!active));
+      panel.querySelectorAll(".finance-stage").forEach(part => { part.hidden = Number(part.dataset.stage) !== stage; });
+    });
+    selectors.forEach(button => {
+      const active = button.dataset.scenario === scenario;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    tabs.forEach(button => {
+      const active = Number(button.dataset.financeView) === stage;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
+    });
+    $("finance-nav-progress").style.width = `${(stage + 1) * 25}%`;
+    $("finance-view-count").textContent = `${selectors.find(b => b.dataset.scenario === scenario).textContent.trim()} · ${stages[stage]} (${stage + 1}/4)`;
+    $("finance-prev").disabled = stage === 0;
+    $("finance-next").disabled = stage === 3;
+    $("finance-next").textContent = stage === 3 ? "Scenario complete" : `Next: ${stages[stage + 1]}`;
+    if (history) window.history.pushState(null, "", `#${scenario}-${stage}`);
+    window.scrollTo({top: 0, behavior: "instant"});
+  }
+  function fromHash() {
+    const match = /^#(apple|microsoft|multi)-([0-3])$/.exec(location.hash);
+    show(match?.[1] || "apple", Number(match?.[2] || 0), false);
+  }
+  selectors.forEach(button => button.addEventListener("click", () => show(button.dataset.scenario, 0)));
+  tabs.forEach(button => button.addEventListener("click", () => show(scenario, Number(button.dataset.financeView))));
+  $("finance-prev").addEventListener("click", () => show(scenario, stage - 1));
+  $("finance-next").addEventListener("click", () => show(scenario, stage + 1));
+  document.querySelectorAll("[data-finance-detail]").forEach(button => button.addEventListener("click", () => {
+    const detail = button.dataset.financeDetail;
+    document.querySelectorAll("[data-finance-detail]").forEach(b => {
+      const selected = b === button; b.classList.toggle("active", selected); b.setAttribute("aria-selected", String(selected));
+    });
+    document.querySelectorAll("[data-detail-panel]").forEach(panel => { panel.hidden = panel.dataset.detailPanel !== detail; });
+  }));
+  window.addEventListener("popstate", fromHash);
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
+})();
+</script>
+<script>
+"use strict";
+/* UI-only controller. All Q-values, rewards and evaluations come from asset_agent.py.
+   No JavaScript implementation of Q-learning or precomputed training curves. */
+(() => {
+  const $=id=>document.getElementById(id);
+  const market=CHALLENGE_MARKET_DATA;
+  const WEIGHTS=[0,50,100], REFERENCE={alpha:.15,gamma:.90,epsilon:.25,budget:100};
+  let ready=false,live=null,segments=null,timer=null,running=false,saved=[],lastSaved=null,
+      finalUsed=false,selectedState=0,lastComparison=null;
+  const argmax=row=>row.indexOf(Math.max(...row));
+  const pct=(v,n=1)=>`${v>=0?'+':''}${(100*v).toFixed(n)}%`;
+  const dec=(v,n=3)=>Number(v).toFixed(n);
+  const cfg=()=>({alpha:Number($('ch-alpha').value),gamma:Number($('ch-gamma').value),
+    epsilon:Number($('ch-epsilon').value),budget:Number($('ch-budget').value)});
+  const call=(action,fields={})=>window.financeLabCommand(action,fields);
+  const stateDesc=s=>{
+    const group=Math.floor(s/3),previous=s%3;
+    return `${group&2?'Up':'Down'} 4w / ${group&1?'Up':'Down'} 12w · previous ${WEIGHTS[previous]}%`;
+  };
+  const status=msg=>$('ch-runtime').textContent=msg;
+  function stop(){running=false;if(timer!==null){clearInterval(timer);timer=null;}}
+  function displaySettings(){for(const id of ['alpha','gamma','epsilon'])$('ch-'+id+'-out').textContent=Number($('ch-'+id).value).toFixed(2);}
+  function controls(){
+    const trainingFinished=live&&live.passes>=cfg().budget;
+    $('ch-start').disabled=!ready||running||trainingFinished;
+    $('ch-week').disabled=!ready||running||trainingFinished;
+    $('ch-pause').disabled=!running;
+    $('ch-reset').disabled=!ready;
+    $('ch-validate').disabled=!ready||running||!live||live.passes<1;
+    $('ch-compare').disabled=!ready||saved.length<2||!$('ch-compare-a').value||!$('ch-compare-b').value;
+    $('ch-seed-check').disabled=!ready||running||saved.length<1||!$('ch-seed-run').value;
+    $('ch-final-reveal').disabled=!ready||running||finalUsed||saved.length<1||!$('ch-final-run').value;
+  }
+  function init(){
+    if(ready||!window.financePythonReady?.())return;
+    try{
+      const out=call('init',{prices:market.map(x=>x.close),dates:market.map(x=>x.date),params:cfg()});
+      live=out.snapshot;segments=out.segments;ready=true;
+      $('ch-train-weeks').textContent=`${segments.trainWeeks} decisions`;
+      $('ch-val-weeks').textContent=`${segments.validationWeeks} decisions`;
+      $('ch-final-weeks').textContent=`${segments.finalWeeks} decisions`;
+      status('Real Python ready · the same Q-learning implementation used in the notebooks');
+      render();
+    }catch(e){status('Python initialization failed: '+String(e.message||e));}
+  }
+  function reset(){
+    stop();displaySettings();lastComparison=null;
+    if(!ready){controls();return;}
+    try{
+      const out=call('reset',{params:cfg()});live=out.snapshot;segments=out.segments;
+      status('Agent reset with new parameters. Saved experiments remain available.');
+      render();
+    }catch(e){status('Reset error: '+String(e.message||e));}
+  }
+  function step(count){
+    if(!ready||!live||live.passes>=cfg().budget)return;
+    try{live=call('step',{count});render();
+      if(live.passes>=cfg().budget){stop();status(`Training completed: ${live.passes} passes × ${segments.trainWeeks} repeated historical weeks.`);render();}
+    }catch(e){stop();status('Training error: '+String(e.message||e));controls();}
+  }
+  function tick(){if(running)step(Number($('ch-speed').value));}
+  function start(){if(!ready||running||live?.passes>=cfg().budget)return;
+    running=true;status('Training in Python · watch values and policies update');controls();
+    timer=setInterval(tick,90);tick();
+  }
+  function pause(){stop();status('Paused. Inspect the selected Q-values or change settings to start a different experiment.');render();}
+  // SVG plotting reads real traces returned by the Python engine.
+  function svgPlot(id,series,budget,empty,formatY=v=>v.toFixed(2)){
+    const svg=$(id),width=780,L=65,R=758,T=20,B=233;
+    if(!series.some(s=>s.values.length)){svg.innerHTML=`<text x="390" y="130" text-anchor="middle" class="finance-empty-chart">${empty}</text>`;return;}
+    const all=series.flatMap(s=>s.values).filter(Number.isFinite);
+    let low=Math.min(...all),high=Math.max(...all);
+    if(high-low<0.001){low-=0.004;high+=0.004;}else{const pad=(high-low)*.11;low-=pad;high+=pad;}
+    const x=i=>L+(R-L)*(i+1)/Math.max(1,budget),y=v=>B-(v-low)/(high-low)*(B-T);
+    let html='';
+    for(let k=0;k<=4;k++){
+      const v=low+(high-low)*k/4, yy=y(v);
+      html+=`<line class="ch-plot-grid" x1="${L}" x2="${R}" y1="${yy}" y2="${yy}"/><text class="ch-plot-label" x="${L-9}" y="${yy+4}" text-anchor="end">${formatY(v)}</text>`;
+    }
+    for(const s of series){if(!s.values.length)continue;
+      if(s.values.length===1){html+=`<circle cx="${x(0)}" cy="${y(s.values[0])}" r="4" fill="${s.color}"/>`;continue;}
+      const pts=s.values.map((v,i)=>`${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(' ');
+      html+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    }
+    html+=`<text class="ch-plot-label" x="${L}" y="${B+20}">Pass 1</text><text class="ch-plot-label" x="${R}" y="${B+20}" text-anchor="end">Pass ${budget}</text>`;
+    svg.innerHTML=html;
+  }
+  function rewardChart(){
+    const h=live.history,g=live.greedyHistory;
+    const ma=h.map((_,i)=>{const recent=h.slice(Math.max(0,i-19),i+1);return recent.reduce((a,b)=>a+b,0)/recent.length;});
+    svgPlot('ch-training-chart',[{values:h,color:'#12674f'},{values:ma,color:'#b58b27'},{values:g,color:'#2f67bd'}],cfg().budget,'Start training to draw real reward curves');
+  }
+  function qChart(){
+    if(!ready||!live){return;}
+    try{
+      const trace=call('trace',{state:selectedState}),q=trace.q;
+      svgPlot('ch-q-chart',[
+        {values:q.map(row=>row[0]),color:'#64748b'},
+        {values:q.map(row=>row[1]),color:'#c58b2b'},
+        {values:q.map(row=>row[2]),color:'#12674f'}
+      ],cfg().budget,'Complete a training pass to see actual Q-values',v=>v.toFixed(3));
+      const best=argmax(live.q[selectedState]),vals=live.q[selectedState];
+      $('ch-state-readout').textContent=`After ${live.passes} passes: Q(cash)=${dec(vals[0],4)}, Q(50%)=${dec(vals[1],4)}, Q(100%)=${dec(vals[2],4)}. Current greedy choice: ${WEIGHTS[best]}% MSFT. This state has been visited ${trace.visits} times.`;
+    }catch(e){$('ch-state-readout').textContent='Q-trace unavailable: '+String(e.message||e);}
+  }
+  function policyTable(){
+    if(!live)return;
+    let html='<table class="ch-table"><thead><tr><th>4w</th><th>12w</th><th>Previous</th><th>Best allocation</th><th>Best Q</th></tr></thead><tbody>';
+    for(let i=0;i<12;i++){
+      const g=Math.floor(i/3),w=WEIGHTS[i%3],best=argmax(live.q[i]);
+      html+=`<tr class="${i===selectedState?'ch-selected-row':''}" data-ch-state="${i}"><td>${g&2?'↑':'↓'}</td><td>${g&1?'↑':'↓'}</td><td>${w}%</td><td><strong>${WEIGHTS[best]}%</strong></td><td>${dec(live.q[i][best],3)}</td></tr>`;
+    }
+    $('ch-policy-table').innerHTML=html+'</tbody></table>';
+    $('ch-policy-table').querySelectorAll('[data-ch-state]').forEach(row=>row.addEventListener('click',()=>{
+      selectedState=Number(row.dataset.chState);$('ch-state').value=selectedState;renderState();
+    }));
+  }
+  function renderState(){
+    $('ch-state-definition').textContent=stateDesc(selectedState);
+    qChart();policyTable();
+  }
+  function render(){
+    if(!ready||!live){controls();return;}
+    const budget=cfg().budget,progress=(live.passes*segments.trainWeeks+live.position)/(budget*segments.trainWeeks);
+    $('ch-passes').textContent=`${live.passes} / ${budget}`;
+    $('ch-live-title').textContent=running?'Learning from historical returns…':live.passes>=budget?'Training complete':(live.passes||live.position)?'Paused · inspect the agent':'Ready to learn';
+    $('ch-progress-fill').style.width=`${Math.min(100,100*progress).toFixed(2)}%`;
+    $('ch-progress').setAttribute('aria-valuenow',String(Math.round(100*progress)));
+    $('ch-running-reward').textContent=dec(live.currentReward,3);
+    $('ch-last-reward').textContent=live.history.length?dec(live.history.at(-1),3):'—';
+    const e=cfg().epsilon+(0.03-cfg().epsilon)*Math.min(budget-1,live.passes)/Math.max(1,budget-1);
+    $('ch-eps-live').textContent=`${(100*e).toFixed(1)}%`;
+    $('ch-update').textContent=live.last?`${dec(live.last.oldQ,4)} → ${dec(live.last.updated,4)}`:'—';
+    if(live.last){const z=live.last;
+      $('ch-last-decision').textContent=`Week ${market[z.t].date}: state ${z.s} (${stateDesc(z.s)}); agent chose ${WEIGHTS[z.a]}% MSFT. Reward ${pct(z.reward,2)}; TD error ${dec(z.td,4)}. α turns the TD error into a Q-value update.`;
+    }else $('ch-last-decision').textContent='No market decisions yet. Press Step 1 week to inspect an individual Bellman update.';
+    const counts=[0,0,0];live.q.forEach(row=>counts[argmax(row)]++);
+    $('ch-policy').textContent=`Across 12 states, the current greedy policy chooses cash in ${counts[0]}, 50% MSFT in ${counts[1]}, and 100% MSFT in ${counts[2]}. Ties are broken toward cash.`;
+    rewardChart();renderState();controls();
+  }
+  const fnum=(x,n=2)=>x==null?'—':Number(x).toFixed(n);
+  function briefTable(rows){
+    return '<div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Ann. vol.</th><th>Sharpe*</th><th>Allocation changes</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${r.name}</td><td>${pct(r.totalReturn)}</td><td>${pct(r.maxDrawdown)}</td><td>${pct(r.annualVol)}</td><td>${fnum(r.sharpe)}</td><td>${r.changes}</td></tr>`).join('')+'</tbody></table></div><p class="finance-small">*Sharpe uses 0% cash/risk-free interest and annualized weekly returns; cash has undefined Sharpe. These are educational historical price-return comparisons.</p>';
+  }
+  function riskTradeoff(results){
+    const rl=results[0],bh=results[1];
+    const drawdownImprovement=Math.abs(bh.maxDrawdown)-Math.abs(rl.maxDrawdown);
+    const gap=rl.totalReturn-bh.totalReturn;
+    return `<div class="ch-tradeoff-grid"><article><small>Return gap vs 100% MSFT</small><strong>${pct(gap)}</strong><span>Relative performance in percentage points</span></article><article><small>Drawdown reduction vs 100% MSFT</small><strong>${pct(drawdownImprovement)}</strong><span>Positive means a shallower maximum drawdown</span></article><article><small>Positive validation years</small><strong>${rl.positiveYears} / 3</strong><span>Evaluate the unfavorable years too</span></article><article><small>Worst calendar year</small><strong>${pct(rl.worstYear)}</strong><span>Return of the weakest full validation calendar year</span></article></div><p class="finance-small">There is no universal winner: less drawdown may require sacrificing some return. Assess the trade-off and compare with a 50% target allocation as well as buy-and-hold.</p>`;
+  }
+  function yearTable(results,years=['2020','2021','2022']){
+    const labels={'2020':'2020 · shock & recovery','2021':'2021 · strong equities','2022':'2022 · equity selloff','2023':'2023 · strong equities','2024':'2024 · continuation'};
+    const strategies=results.slice(0,3);
+    const records=years.map(y=>{
+      const cells=strategies.map(r=>{
+        const x=r.yearMetrics?.[y];return x?`<td>${pct(x.totalReturn)}</td><td>${pct(x.maxDrawdown)}</td><td>${pct(x.meanExposure)}</td>`:'<td>—</td><td>—</td><td>—</td>';
+      }).join('');
+      return `<tr><td><strong>${labels[y]||y}</strong></td>${cells}</tr>`;
+    }).join('');
+    return `<h4>Regime check · inspect each calendar year, not just the total</h4><div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Period</th>${strategies.map(r=>`<th colspan="3">${r.name}</th>`).join('')}</tr><tr><th></th>${strategies.map(()=>'<th>Return</th><th>Drawdown</th><th>Avg. equity</th>').join('')}</tr></thead><tbody>${records}</tbody></table></div><p class="finance-small">Regime labels describe known historical calendar periods, not hidden market states or independently sampled regimes. Calendar-year drawdowns reset at each year's start.</p>`;
+  }
+  function validation(){
+    if(!ready||running||!live||!live.passes)return;
+    try{
+      const out=call('validation'),r=out.record;
+      saved.push(r);lastSaved=r;
+      $('ch-validation-results').innerHTML=`<p class="finance-small"><strong>Experiment ${r.id}</strong> — α=${r.params.alpha}, γ=${r.params.gamma}, ε=${r.params.epsilon}, ${r.trainingPasses} training passes. Results below use the policy checkpoint after the last complete training pass on 2020–2022. Repeated validation is not independent evidence.</p>`+
+        briefTable(r.results)+riskTradeoff(r.results)+yearTable(r.results);
+      $('ch-validation-status').textContent=`Experiment ${r.id} saved. ${saved.length} runs in your notebook; you can train and save another.`;
+      renderLog();controls();
+    }catch(e){status('Validation error: '+String(e.message||e));}
+  }
+  function optionMenu(id,selected,placeholder='Choose run'){
+    const el=$(id),prior=selected||el.value;
+    el.innerHTML=`<option value="">${placeholder}</option>`+saved.map(r=>`<option value="${r.id}">#${r.id} · α ${r.params.alpha} · γ ${r.params.gamma} · ε ${r.params.epsilon} · ${r.trainingPasses} passes</option>`).join('');
+    if(saved.some(r=>String(r.id)===String(prior)))el.value=prior;
+  }
+  function renderLog(){
+    $('ch-log').innerHTML='<table class="ch-table"><thead><tr><th>#</th><th>α / γ / ε</th><th>Passes</th><th>Net return</th><th>Drawdown</th><th>Trades</th></tr></thead><tbody>'+
+      saved.map(r=>{const v=r.results[0];return `<tr><td>${r.id}</td><td>${dec(r.params.alpha,2)} / ${dec(r.params.gamma,2)} / ${dec(r.params.epsilon,2)}</td><td>${r.trainingPasses}</td><td>${pct(v.totalReturn)}</td><td>${pct(v.maxDrawdown)}</td><td>${v.changes}</td></tr>`;}).join('')+'</tbody></table><p class="finance-small">Treat validation as research feedback, not an unbiased final performance estimate after repeated tuning.</p>';
+    const beforeA=$('ch-compare-a').value,beforeB=$('ch-compare-b').value;
+    for(const id of ['ch-compare-a','ch-compare-b','ch-seed-run','ch-final-run'])optionMenu(id);
+    if(saved.length>1){if(!beforeA)$('ch-compare-a').value=String(saved[0].id);if(!beforeB)$('ch-compare-b').value=String(saved.at(-1).id);}
+    $('ch-seed-run').value=String(lastSaved.id);
+    if(!$('ch-final-run').value)$('ch-final-run').value=String(lastSaved.id);
+  }
+  function compare(){
+    const ai=Number($('ch-compare-a').value),bi=Number($('ch-compare-b').value);
+    if(!ai||!bi||ai===bi){$('ch-comparison').textContent='Choose two different saved runs.';return;}
+    try{
+      const z=call('compare',{a:ai,b:bi,state:selectedState});lastComparison=z;
+      const ar=z.a.results[0],br=z.b.results[0];
+      let h=`<h4>Run #${ai} vs #${bi} · policy differs in ${z.differentStates} of 12 states</h4>`;
+      h+='<table class="ch-table"><thead><tr><th>Metric</th><th>Experiment A</th><th>Experiment B</th></tr></thead><tbody>';
+      const metrics=[['Net return',pct(ar.totalReturn),pct(br.totalReturn)],['Max drawdown',pct(ar.maxDrawdown),pct(br.maxDrawdown)],['Annualized volatility',pct(ar.annualVol),pct(br.annualVol)],['Sharpe (0% cash rate)',fnum(ar.sharpe),fnum(br.sharpe)],['Worst calendar year',pct(ar.worstYear),pct(br.worstYear)],['Positive years',ar.positiveYears+'/3',br.positiveYears+'/3'],['Allocation changes',ar.changes,br.changes],['Mean MSFT allocation',pct(ar.meanEquity),pct(br.meanEquity)]];
+      h+=metrics.map(m=>`<tr><td>${m[0]}</td><td>${m[1]}</td><td>${m[2]}</td></tr>`).join('')+'</tbody></table>';
+      h+='<h4>Where did the policy actually change?</h4><table class="ch-table"><thead><tr><th>State</th><th>Run A best action</th><th>Run B best action</th><th>Different?</th></tr></thead><tbody>';
+      h+=z.policyA.map((a,i)=>`<tr class="${a!==z.policyB[i]?'ch-different-row':''}"><td>${stateDesc(i)}</td><td>${WEIGHTS[a]}% MSFT</td><td>${WEIGHTS[z.policyB[i]]}% MSFT</td><td>${a!==z.policyB[i]?'Changed':'Same'}</td></tr>`).join('')+'</tbody></table>';
+      h+=`<p class="finance-small"><strong>Selected state ${selectedState}:</strong> Run A Q-values: ${z.qA[selectedState].map(v=>dec(v,4)).join(' / ')}; Run B: ${z.qB[selectedState].map(v=>dec(v,4)).join(' / ')}. A different return does not mean learning has improved across markets.</p>`;
+      h+=`<h4>When did each run prefer cash, 50%, or 100% MSFT in state ${selectedState}?</h4><p class="finance-small">Green: experiment A · Blue: experiment B. These are the actual greedy choices after each pass, not cumulative returns.</p><svg id="ch-compare-chart" viewBox="0 0 780 265" role="img" aria-label="Greedy allocation across training passes for two saved runs"></svg>`;
+      $('ch-comparison').innerHTML=h;
+      svgPlot('ch-compare-chart',[{values:z.traceA.map(row=>WEIGHTS[argmax(row)]),color:'#12674f'},{values:z.traceB.map(row=>WEIGHTS[argmax(row)]),color:'#2f67bd'}],Math.max(z.traceA.length,z.traceB.length),'Complete training to compare allocations',v=>`${v.toFixed(0)}%`);
+    }catch(e){$('ch-comparison').textContent='Comparison failed: '+String(e.message||e);}
+  }
+  function checkSeeds(){
+    const id=Number($('ch-seed-run').value);if(!id)return;
+    $('ch-seed-result').textContent='Running actual Python training under three exploration seeds…';
+    try{
+      const r=call('seeds',{runId:id}),v=r.checks,returns=v.map(x=>x.totalReturn);
+      $('ch-seed-result').innerHTML=`<strong>Same configuration, three different exploration paths (run #${id})</strong>`+
+        '<table class="ch-table"><thead><tr><th>Seed</th><th>Net return</th><th>Drawdown</th><th>Allocation changes</th></tr></thead><tbody>'+
+        v.map(x=>`<tr><td>${x.seed}</td><td>${pct(x.totalReturn)}</td><td>${pct(x.maxDrawdown)}</td><td>${x.changes}</td></tr>`).join('')+'</tbody></table>'+
+        `<p>Validation return range: ${pct(Math.min(...returns))} to ${pct(Math.max(...returns))}. The same parameters can produce different policies from different random training actions.</p>`;
+    }catch(e){$('ch-seed-result').textContent='Seed check failed: '+String(e.message||e);}
+  }
+  function finalReveal(){
+    if(!ready||finalUsed)return;
+    const id=Number($('ch-final-run').value);if(!id)return;
+    try{
+      const r=call('final',{runId:id});finalUsed=true;
+      $('ch-final-result').innerHTML=`<p class="finance-small"><strong>2023–2024 out-of-sample check for run #${id}.</strong> This is a single historical regime, not an independent estimate of future performance.</p>`+briefTable(r.results)+riskTradeoff(r.results)+yearTable(r.results,['2023','2024']);
+      $('ch-final-warning').textContent=`Final result revealed for #${id}. Avoid selecting new parameters based on this one test period.`;
+      controls();
+    }catch(e){status('Final test failed: '+String(e.message||e));}
+  }
+  async function copySummary(){
+    const text=['RL Workshop · Open Q-Learning Experiment Lab','Microsoft (MSFT) — historical teaching example','Runs: ',...saved.map(r=>{const v=r.results[0];return `#${r.id}: alpha=${r.params.alpha}, gamma=${r.params.gamma}, epsilon=${r.params.epsilon}, passes=${r.trainingPasses}, validationReturn=${pct(v.totalReturn)}, maxDrawdown=${pct(v.maxDrawdown)}, trades=${v.changes}`;}),
+      'Reflection: '+($('ch-reflection').value||'(not recorded)'),
+      'Note: repeatedly tuned validation periods are not independent out-of-sample tests.'].join('\n');
+    try{await navigator.clipboard.writeText(text);$('ch-copy').textContent='Copied';}
+    catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.append(ta);ta.select();document.execCommand('copy');ta.remove();$('ch-copy').textContent='Copied';}
+  }
+  // Supply the state menu immediately, even while Python is still initializing.
+  for(let i=0;i<12;i++)$('ch-state').insertAdjacentHTML('beforeend',`<option value="${i}">State ${i} · ${stateDesc(i)}</option>`);
+  for(const p of ['alpha','gamma','epsilon','budget'])$('ch-'+p).addEventListener('input',reset);
+  $('ch-state').addEventListener('change',()=>{selectedState=Number($('ch-state').value);renderState();});
+  $('ch-defaults').addEventListener('click',()=>{for(const [p,v]of Object.entries(REFERENCE))$('ch-'+p).value=v;reset();});
+  $('ch-start').addEventListener('click',start);$('ch-pause').addEventListener('click',pause);
+  $('ch-week').addEventListener('click',()=>step(1));$('ch-reset').addEventListener('click',reset);
+  $('ch-validate').addEventListener('click',validation);$('ch-compare').addEventListener('click',compare);
+  $('ch-seed-check').addEventListener('click',checkSeeds);$('ch-final-reveal').addEventListener('click',finalReveal);
+  $('ch-copy').addEventListener('click',copySummary);
+  $('ch-compare-a').addEventListener('change',controls);$('ch-compare-b').addEventListener('change',controls);
+  document.addEventListener('finance-python-ready',init);
+  displaySettings();controls();if(window.financePythonReady?.())init();
+})();
+
+</script>
+
+<script>
+"use strict";
+/* Optional multi-asset lab. No Q-learning logic in JS: Pyodide executes
+   asset_agent.MultiAssetAgent for all values, rewards and evaluations. */
+(() => {
+  const $=id=>document.getElementById(id);
+  const source=MULTI_ASSET_MARKET_DATA;
+  const actions=['100% cash','100% SPY','100% TLT','50/50 SPY–TLT','50% SPY/cash','50% TLT/cash'];
+  const colors=['#73818a','#12674f','#2f67bd','#c58b2b','#9a57ad','#d46d4b'];
+  const displayPct=v=>`${v>=0?'+':''}${(100*v).toFixed(1)}%`;
+  const fnum=v=>v==null?'—':Number(v).toFixed(2);
+  const cfg=()=>({alpha:Number($('ma-alpha').value),gamma:Number($('ma-gamma').value),
+    epsilon:Number($('ma-epsilon').value),budget:Number($('ma-budget').value),seed:17});
+  const call=(action,args={})=>window.financeMultiCommand(action,args);
+  let ready=false,running=false,timer=null,live=null,selectedState=0,finalUsed=false,saved=[];
+  const best=row=>row.indexOf(Math.max(...row));
+  const stateDesc=s=>`${(Math.floor(s/6)&2)?'SPY ↑':'SPY ↓'} · ${(Math.floor(s/6)&1)?'TLT ↑':'TLT ↓'} · previous ${actions[s%6]}`;
+  function status(s){$('ma-runtime').textContent=s;}
+  function stop(){running=false;if(timer!==null){clearInterval(timer);timer=null;}}
+  function controls(){
+    const finished=live?.passes>=cfg().budget;
+    $('ma-start').disabled=!ready||running||finished;
+    $('ma-step').disabled=!ready||running||finished;
+    $('ma-pause').disabled=!running;
+    $('ma-reset').disabled=!ready;
+    $('ma-validate').disabled=!ready||running||!live?.passes;
+    $('ma-final').disabled=!ready||running||!live?.passes||finalUsed;
+  }
+  function labels(){for(const p of ['alpha','gamma','epsilon'])$('ma-'+p+'-out').textContent=Number($('ma-'+p).value).toFixed(2);}
+  function initialize(){
+    if(ready||!window.financePythonReady?.())return;
+    try{
+      live=call('init',{dates:source.map(x=>x.date),spy:source.map(x=>x.spy),
+        tlt:source.map(x=>x.tlt),params:cfg()});
+      ready=true;status('Real Python environment loaded · 2016–2019 training, 2020–2022 validation, 2023–2024 holdout');render();
+    }catch(e){status('Multi-asset initialization failed: '+String(e.message||e));}
+  }
+  function reset(){
+    stop();labels();
+    if(!ready){controls();return;}
+    try{live=call('reset',{params:cfg()});status('New Python agent initialized. Saved comparisons remain available.');render();}
+    catch(e){status('Reset error: '+String(e.message||e));}
+  }
+  function step(n){
+    if(!ready||live.passes>=cfg().budget)return;
+    try{live=call('step',{count:n});render();
+      if(live.passes>=cfg().budget){stop();status(`Completed ${live.passes} training passes; each pass replayed ${live.trainWeeks} historical weeks.`);render();}
+    }catch(e){stop();status('Training error: '+String(e.message||e));controls();}
+  }
+  function start(){
+    if(!ready||running||live.passes>=cfg().budget)return;
+    running=true;status('Training the real Python Q-learning agent…');controls();
+    timer=setInterval(()=>{if(running)step(Number($('ma-speed').value));},90);
+    step(Number($('ma-speed').value));
+  }
+  function plot(id,series,budget,empty,format=v=>v.toFixed(3)){
+    const svg=$(id), L=65,R=758,T=22,B=225;
+    if(!series.some(s=>s.values.length)){
+      svg.innerHTML=`<text x="390" y="135" text-anchor="middle" class="finance-empty-chart">${empty}</text>`;return;
+    }
+    const vs=series.flatMap(s=>s.values).filter(Number.isFinite);
+    let lo=Math.min(...vs), hi=Math.max(...vs);let pad=(hi-lo)*.1;
+    if(pad<.002)pad=.005;lo-=pad;hi+=pad;
+    const y=v=>B-(v-lo)/(hi-lo)*(B-T), x=i=>L+(R-L)*(i+1)/Math.max(1,budget);
+    let h='';
+    for(let j=0;j<=4;j++){
+      const v=lo+(hi-lo)*j/4,yy=y(v);
+      h+=`<line class="ch-plot-grid" x1="${L}" x2="${R}" y1="${yy}" y2="${yy}"/><text class="ch-plot-label" text-anchor="end" x="${L-8}" y="${yy+4}">${format(v)}</text>`;
+    }
+    for(const s of series){
+      if(!s.values.length)continue;
+      if(s.values.length===1){h+=`<circle cx="${x(0)}" cy="${y(s.values[0])}" r="4" fill="${s.color}"/>`;continue;}
+      h+=`<polyline fill="none" stroke="${s.color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="${s.values.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"/>`;
+    }
+    h+=`<text class="ch-plot-label" x="${L}" y="${B+20}">Pass 1</text><text class="ch-plot-label" x="${R}" y="${B+20}" text-anchor="end">Pass ${budget}</text>`;
+    svg.innerHTML=h;
+  }
+  function drawQ(){
+    if(!ready)return;
+    try{
+      const trace=call('trace',{state:selectedState}).values;
+      plot('ma-q-chart', actions.map((label,a)=>({values:trace.map(row=>row[a]),color:colors[a]})),
+        cfg().budget,'Complete one training pass to view six actual Q-values');
+      const row=live.q[selectedState],b=best(row);
+      $('ma-best').textContent=`Current greedy decision: ${actions[b]} · ${live.passes} training passes`;
+      $('ma-action-values').innerHTML='<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px">'+row.map((v,i)=>`<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colors[i]};margin-right:5px"></i>${actions[i]}: <strong>${v.toFixed(4)}</strong></span>`).join('')+'</div>';
+    }catch(e){$('ma-best').textContent='Q-values unavailable: '+String(e.message||e);}
+  }
+  function render(){
+    if(!ready){controls();return;}
+    const budget=cfg().budget,progress=(live.passes*live.trainWeeks+live.position)/(budget*live.trainWeeks);
+    $('ma-passes').textContent=`${live.passes} / ${budget}`;
+    $('ma-title').textContent=running?'Learning from historical ETF returns…':live.passes>=budget?'Training complete':(live.passes||live.position)?'Paused · inspect results':'Ready to learn';
+    $('ma-progress-fill').style.width=`${Math.min(100,progress*100).toFixed(2)}%`;
+    $('ma-progress').setAttribute('aria-valuenow',String(Math.round(progress*100)));
+    $('ma-reward').textContent=live.currentReward.toFixed(3);
+    $('ma-last-reward').textContent=live.history.length?live.history.at(-1).toFixed(3):'—';
+    $('ma-q-update').textContent=live.last?`${live.last.old.toFixed(3)} → ${live.last.new.toFixed(3)}`:'—';
+    const z=live.last;
+    $('ma-last-decision').textContent=z?`Realized ${z.date}: ${stateDesc(z.state)}; chose ${actions[z.action]}; reward ${displayPct(z.reward)}; TD error ${z.td.toFixed(4)}. A later market return determines the reward.`:'Step through a week to see an action and its Q-learning update.';
+    plot('ma-reward-chart',[{values:live.history,color:'#12674f'},
+        {values:live.greedyHistory,color:'#2f67bd'}],budget,'Start training to see reward curves');
+    drawQ();controls();
+  }
+  function metricsTable(results){
+    return '<div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Annual volatility</th><th>Sharpe*</th><th>Trades</th></tr></thead><tbody>'+
+      results.map(r=>`<tr><td>${r.name}</td><td>${displayPct(r.totalReturn)}</td><td>${displayPct(r.maxDrawdown)}</td><td>${displayPct(r.annualVol)}</td><td>${fnum(r.sharpe)}</td><td>${r.changes}</td></tr>`).join('')+'</tbody></table></div><p class="finance-small">*Cash/risk-free rate assumed 0%; Sharpe undefined for cash. Source observations are price-only (not verified total return).</p>';
+  }
+  function regimeTable(results,years){
+    const short=[results[0],results[1],results[2],results[3]];
+    return `<h3>Return and maximum drawdown by calendar year</h3><div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Year</th>${short.map(r=>`<th colspan="2">${r.name}</th>`).join('')}</tr><tr><th></th>${short.map(()=>'<th>Return</th><th>Drawdown</th>').join('')}</tr></thead><tbody>`+
+      years.map(y=>`<tr><td><strong>${y}</strong></td>${short.map(r=>{const m=r.yearMetrics[y];return m?`<td>${displayPct(m.totalReturn)}</td><td>${displayPct(m.maxDrawdown)}</td>`:'<td>—</td><td>—</td>';}).join('')}</tr>`).join('')+'</tbody></table></div>';
+  }
+  function validation(){
+    if(!ready||running||live.passes<1)return;
+    try{
+      const r=call('validation');saved.push({params:{...cfg()},q:live.q.map(row=>row.slice()),results:r,passes:live.passes});
+      $('ma-validation').innerHTML=`<p class="finance-small">Run #${saved.length}: frozen policy evaluated during 2020–2022; cumulative net return is NOT the Q-learning training reward.</p>`+metricsTable(r)+regimeTable(r,['2020','2021','2022'])+`<p class="ma-study-notes"><strong>Trade-off:</strong> the agent's worst-year return is ${displayPct(r[0].worstYear)}, against ${displayPct(r[3].worstYear)} for fixed 50/50. The RL policy has ${r[0].positiveYears} positive years out of three. Inspect both its net return and drawdown before judging it.</p>`;
+      $('ma-runtime').textContent=`Validation saved as run #${saved.length}; ${saved.length} configuration(s) recorded. Change learning settings to compare another experiment.`;
+      renderHistory();
+    }catch(e){status('Validation failed: '+String(e.message||e));}
+  }
+  function renderHistory(){
+    $('ma-run-log').innerHTML='<h3>Saved validation experiments</h3><div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Run</th><th>α / γ / ε</th><th>Passes</th><th>Net return</th><th>Drawdown</th><th>Worst year</th></tr></thead><tbody>'+saved.map((r,i)=>`<tr><td>#${i+1}</td><td>${r.params.alpha.toFixed(2)} / ${r.params.gamma.toFixed(2)} / ${r.params.epsilon.toFixed(2)}</td><td>${r.passes}</td><td>${displayPct(r.results[0].totalReturn)}</td><td>${displayPct(r.results[0].maxDrawdown)}</td><td>${displayPct(r.results[0].worstYear)}</td></tr>`).join('')+'</tbody></table></div>';
+    if(saved.length>=2){
+      const a=saved.at(-2),b=saved.at(-1),pa=a.q.map(best),pb=b.q.map(best),changed=pa.filter((v,i)=>v!==pb[i]).length;
+      $('ma-run-log').innerHTML+=`<p class="ma-study-notes">Last two policies prefer different actions in <strong>${changed} of 24 states</strong>. Compare this with their drawdown and their worst-year return; a higher return is not automatically a better or more stable policy.</p>`;
+    }
+  }
+  function final(){
+    if(!ready||running||finalUsed||live.passes<1)return;
+    try{const r=call('final');finalUsed=true;
+      $('ma-final-result').innerHTML='<p class="finance-small">Single 2023–2024 price-return holdout for the CURRENT trained policy (not an automatically selected winner). Do not tune again based on this result.</p>'+metricsTable(r)+regimeTable(r,['2023','2024']);
+      controls();
+    }catch(e){status('Final reveal failed: '+String(e.message||e));}
+  }
+  for(let s=0;s<24;s++)$('ma-state').insertAdjacentHTML('beforeend',`<option value="${s}">${stateDesc(s)}</option>`);
+  $('ma-state').addEventListener('change',()=>{selectedState=Number($('ma-state').value);drawQ();});
+  for(const p of ['alpha','gamma','epsilon','budget'])$('ma-'+p).addEventListener('input',reset);
+  $('ma-start').addEventListener('click',start);
+  $('ma-step').addEventListener('click',()=>step(1));
+  $('ma-pause').addEventListener('click',()=>{stop();status('Training paused. Examine Q-values, then continue or reset.');render();});
+  $('ma-reset').addEventListener('click',reset);
+  $('ma-validate').addEventListener('click',validation);
+  $('ma-final').addEventListener('click',final);
+  document.addEventListener('finance-python-ready',initialize);
+  labels();controls();if(window.financePythonReady?.())initialize();
+})();
+
+</script>
+</body>
+</html>

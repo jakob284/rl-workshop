@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Coding preview and reproducible notebooks for the RL finance workshop">
+  <title>Coding · Reinforcement Learning Workshop</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="coding.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">Q</span><span><strong>Reinforcement Learning</strong><small>From ideas to code</small></span></a>
+    <nav class="topnav site-nav" aria-label="Main sections">
+      <a href="index.html">Basics</a><a href="finance.html">Applied to finance</a><a class="active" href="coding.html" aria-current="page">Coding</a>
+    </nav>
+    <div class="status-pill"><span></span> Workshop resources</div>
+  </header>
+  <main class="coding-main">
+    <section class="coding-hero">
+      <p class="eyebrow">Coding · a preview</p>
+      <h1>Build the agent behind the finance examples.</h1>
+      <p>Start with a guided notebook, then compare your solution with the completed version. This section is a first look at the coding workshop; the interactive lesson will grow later.</p>
+      <a class="button primary" href="notebooks/Guided_Apple_QLearning.ipynb" download>Download guided notebook</a>
+    </section>
+    <section class="coding-section" aria-labelledby="coding-path">
+      <div class="section-heading"><div><p class="eyebrow">Learning path</p><h2 id="coding-path">One example, two notebooks</h2></div><p>The same Apple data and Python agent power the website and the notebooks. Work through the blank steps before opening the reference solution.</p></div>
+      <div class="coding-cards">
+        <article class="panel"><span class="coding-kicker">Start here</span><h3>Guided Apple exercise</h3><p>Load the supplied data, fill in the training and evaluation steps, and inspect the learned action values. Prompts mark each “your code goes here” cell.</p><a class="button primary" href="notebooks/Guided_Apple_QLearning.ipynb" download>Guided notebook</a></article>
+        <article class="panel"><span class="coding-kicker">Check your work</span><h3>Completed Apple notebook</h3><p>Run the reference walkthrough with the same engine used on the finance page. Compare the Q-values, benchmark outcomes, and caveats.</p><a class="button secondary" href="notebooks/Dynamic_Allocation_Using_Shared_Python_Agent.ipynb" download>Completed notebook</a></article>
+      </div>
+    </section>
+    <section class="coding-section" aria-labelledby="coding-resources">
+      <div class="section-heading"><div><p class="eyebrow">Reproduce and extend</p><h2 id="coding-resources">Data and further examples</h2></div><p>These resources are public teaching material. Download the Python module and CSV files alongside a notebook to run it locally.</p></div>
+      <div class="coding-resources">
+        <div class="panel"><h3>Shared Python engine</h3><p>The agent classes, rewards, and evaluation routines used by the finance page.</p><a href="asset_agent.py" download>Download asset_agent.py</a></div>
+        <div class="panel"><h3>Apple data</h3><p>Normalized weekly stock prices, 2018–2019. The Apple exercise uses the AAPL column.</p><a href="data/historical_normalized_weekly_stocks_2018_2019.csv" download>Download CSV</a></div>
+        <div class="panel"><h3>Microsoft experiment</h3><p>Longer history for training, validation, and an illustrative final check.</p><a href="notebooks/Microsoft_Open_Experiment_Lab.ipynb" download>Notebook</a> · <a href="data/msft_weekly_2013_2024.csv" download>CSV</a></div>
+        <div class="panel"><h3>Multi-asset extension</h3><p>SPY/TLT/cash example. Price observations are not verified dividend-adjusted returns.</p><a href="notebooks/SPY_TLT_Multi_Asset_QLearning.ipynb" download>Notebook</a> · <a href="data/etf_weekly_SPY_TLT_2016_2024.csv" download>CSV</a></div>
+      </div>
+      <p class="coding-note">Local notebooks use Python with pandas and matplotlib (and NumPy for the Apple notebook). The website uses Pyodide from jsDelivr; its first load needs access to that CDN. Historical results are educational comparisons, not validated trading performance.</p>
+    </section>
+  </main>
+  <footer><strong>Reinforcement Learning Workshop</strong><span>Finance case study and learning engine by Kai · Site integration by Jakob's workshop team</span></footer>
+</body>
+</html>
