@@ -13,15 +13,20 @@
       <span class="brand-mark">Q</span>
       <span><strong>Reinforcement Learning</strong><small>Theory and interactive demonstration</small></span>
     </button>
-    <nav class="topnav" aria-label="Workshop sections">
-      <button class="active" data-view="0">Introduction</button>
-      <button data-view="1">Environment</button>
-      <button data-view="2">Q-learning</button>
-      <button data-view="3">Training</button>
+    <nav class="topnav site-nav" aria-label="Main sections">
+      <a class="active" href="index.html" aria-current="page">Basics</a>
+      <a href="finance.html">Applied to finance</a>
+      <a href="coding.html">Coding</a>
     </nav>
     <div class="status-pill"><span></span> Browser-based simulation</div>
   </header>
 
+  <nav class="basics-nav" aria-label="Basics pages">
+    <button class="active" data-view="0">Introduction</button>
+    <button data-view="1">Environment</button>
+    <button data-view="2">Q-learning</button>
+    <button data-view="3">Training</button>
+  </nav>
   <main>
     <section class="section theory-view workshop-view active" id="overview" data-view-panel="0">
       <header class="theory-header">
@@ -119,6 +124,7 @@
           <article class="theory-card"><h3>Environment parameters</h3><p>Transition noise and reward values define the task. They are not Q-learning hyperparameters, although changing them changes the learned solution.</p></article>
         </div>
         <div class="theory-note caution"><strong>Convergence conditions.</strong> In a finite MDP with bounded rewards, tabular Q-learning converges under standard stochastic-approximation conditions when every state-action pair is visited sufficiently often and the learning rates satisfy appropriate summability conditions. The fixed-rate browser simulation is an instructional demonstration, not a convergence proof.</div>
+        <div class="theory-note"><strong>Training, validation, and final testing.</strong> Training observations update Q-values. Validation observations help compare settings while the policy is frozen. A final period checks the chosen policy once more; using its results to keep tuning makes it part of model selection. The grid world can generate fresh episodes, while the finance examples replay a limited historical record.</div>
       </div>
 
       <div class="theory-section algorithm-section">
@@ -132,6 +138,7 @@
         </ol>
         <p class="source-note">Structure and terminology aligned with the supplied TUM course material on Markov decision processes and reinforcement learning (Summer Term 2026).</p>
         <button class="button primary" data-view="1">Proceed to the grid-world environment</button>
+        <a class="button secondary" href="finance.html">Explore applied finance</a>
       </div>
     </section>
 
@@ -143,7 +150,7 @@
 
       <div class="environment-switch" role="tablist" aria-label="Environment examples">
         <button class="active">Grid-world environment</button>
-        <button disabled>Financial environment · later module</button>
+        <a href="finance.html">Explore finance scenarios</a>
       </div>
 
       <div class="environment-layout">
