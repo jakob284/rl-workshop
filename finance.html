@@ -38,28 +38,31 @@
   <div class="finance-engine-strip" role="status" aria-live="polite"><span class="finance-engine-dot"></span><span id="finance-runtime">Initializing Python runtime…</span></div>
   <main class="finance-main">
     <div class="finance-view active" id="finance-overview" data-finance-panel="0">
-    <section class="finance-hero">
+    <div class="finance-intro-layout"><header class="theory-header finance-hero">
       <p class="eyebrow">TUM · RL workshop · Apple scenario</p>
       <h1>Q-learning for weekly portfolio allocation</h1>
       <p class="finance-lead">From the grid-world Bellman update to a portfolio decision: each week the agent chooses how much to hold in Apple stock versus cash. It sees <strong>short- and long-horizon momentum</strong>, and learns from returns, transaction costs, and an optional downside penalty.</p>
       <div class="finance-hero-actions"><a class="button secondary" href="coding.html">Explore the code and notebooks</a><a class="button secondary" href="data/historical_normalized_weekly_stocks_2018_2019.csv" download>Download Apple data</a></div>
       <p class="finance-disclaimer">Educational demonstration, not a trading strategy. The data cover just 2018–2019 and are insufficient to validate predictive investment performance.</p>
-    </section>
+    </header>
 
 
-    <section class="finance-section finance-introduction" aria-labelledby="intro-title">
-      <div class="section-heading"><div><p class="eyebrow">The motivation · before we code</p><h2 id="intro-title">The weekly allocation decision</h2></div><p>A fixed buy-and-hold policy is simple, but changing exposure may be valuable when conditions change. Every adjustment can also incur costs.</p></div>
-      <div class="finance-intro-grid">
+    <section class="theory-section finance-introduction" aria-labelledby="intro-title">
+      <div class="theory-section-title"><span>1</span><div><h2 id="intro-title">The weekly allocation decision</h2><p>Changing exposure may be valuable when conditions change; each adjustment can incur a cost.</p></div></div>
+      <div class="finance-intro-grid theory-grid three">
         <article class="finance-intro-card"><span class="finance-intro-number">01</span><h3>What do we control?</h3><p>Our portfolio weight: how much capital to allocate to Apple stock versus cash at each weekly decision.</p></article>
         <article class="finance-intro-card"><span class="finance-intro-number">02</span><h3>What is uncertain?</h3><p>Future returns. We observe recent price momentum, but neither the next return nor the true market state is known.</p></article>
         <article class="finance-intro-card"><span class="finance-intro-number">03</span><h3>Why is it sequential?</h3><p>Moving from 0% to 100% exposure has a cost. Today's weight becomes the starting point for tomorrow's decision.</p></article>
       </div>
+      </section>
+    <section class="theory-section finance-introduction">
+      <div class="theory-section-title"><span>2</span><div><h2>Example state</h2><p>Short- and long-horizon signals can disagree.</p></div></div>
       <div class="finance-scenario">
         <div class="finance-scenario-copy"><p class="eyebrow">Thought experiment</p><h3>Suppose you already hold 50% Apple.</h3><p>The short-term signal is positive, but the long-term signal is negative. Should you hold, buy more, or sell? The signals alone cannot tell you the answer: returns, risks, and future adjustment costs matter.</p><p class="finance-scenario-foot">These signal values illustrate a possible state; they are not a specific observation from the dataset.</p></div>
         <div class="finance-scenario-detail"><div class="finance-signal-row"><span>Previous allocation</span><strong>50% Apple</strong></div><div class="finance-signal-row"><span>4-week momentum</span><strong class="finance-positive">Positive</strong></div><div class="finance-signal-row"><span>12-week momentum</span><strong class="finance-negative">Negative</strong></div><div class="finance-choice-row"><span>Available choices</span><div><b>0%</b><b>50%</b><b>100%</b></div></div><p>The agent learns a preference for each action from historical experience.</p></div>
       </div>
-      <div class="finance-bridge"><div><strong>The workshop question</strong><p>Can a learned rebalancing policy outperform transparent alternatives after transaction costs—and how convincing would such a result be?</p></div></div>
-    </section>
+      <div class="theory-note"><strong>Workshop question.</strong> Can a learned rebalancing policy outperform transparent alternatives after transaction costs—and how convincing would such a result be?</div>
+    </section></div>
     </div>
 
     <div class="finance-view" id="finance-model" data-finance-panel="1">
@@ -86,38 +89,32 @@
     <div class="finance-view" id="finance-control-room" data-finance-panel="2" hidden>
       <section class="finance-section" aria-labelledby="apple-control-title">
         <div class="section-heading"><div><p class="eyebrow">Q-learning · control room</p><h2 id="apple-control-title">State, action values, policy, and experience</h2></div><p>Advance one historical week, inspect the Bellman update, then follow the learned values across all 12 states.</p></div>
-        <div class="finance-live-boards boards-grid" aria-label="Live apple Q-learning boards">
-      <article class="board-panel"><div class="board-title"><span>01</span><div><h3>Greedy policy</h3><p>Best current action in each of 12 states</p></div></div><div class="finance-state-grid" id="apple-policy-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>02</span><div><h3>Greedy value estimate</h3><p>Maximum action value per state</p></div></div><div class="finance-state-grid" id="apple-value-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>03</span><div><h3>Action values Q(s,a)</h3><p id="apple-selected-state">Select a state on the policy board</p></div></div><div class="finance-board-values" id="apple-q-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>04</span><div><h3>Observed trajectory</h3><p>Most recent training transition</p></div></div><div class="finance-agent-state" id="apple-agent-board">No transition yet.</div></article>
-    </div>
-        <div class="finance-control-actions"><button id="finance-step" class="button primary" type="button">Guided step · one week</button><span>A step updates the real Python Q-table.</span></div>
+        <article class="finance-state-panel board-panel" aria-label="12 portfolio states and action values">
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="finance-state-matrix" id="apple-state-board"></div>
+      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="apple-agent-board">No transition yet.</p></div>
+    </article>
         <div class="finance-playback" aria-label="Playback controls">
       <span class="console-label">Playback</span>
+      <button type="button" class="button small primary" id="finance-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="apple">Fast step</button>
-      <button type="button" class="button small" data-finance-action="pass" data-for="apple">Run one pass</button>
-      <button type="button" class="button small" data-finance-action="ten" data-for="apple">Run 10 passes</button>
-      <button type="button" class="button small ghost" data-finance-action="reset" data-for="apple" data-reset="finance-reset">Reset</button>
-      <span class="finance-playback-note">A pass replays the same training weeks.</span>
+      <button type="button" class="button small" data-finance-action="ten" data-for="apple">10 steps</button>
+      <button type="button" class="button small primary" id="finance-train" disabled>Start training</button>
+      <button type="button" class="button small secondary" id="finance-pause" disabled>Pause</button>
+      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div>
-        <div class="finance-guide" id="finance-guide" hidden><strong id="finance-guide-title">Observe the state</strong><p id="finance-guide-copy"></p><button type="button" id="finance-guide-next" class="button small secondary">Next calculation step</button></div>
-        <details class="finance-detail-disclosure"><summary>Q-learning update and full Q-table</summary>
-        <div class="finance-board-tabs" role="tablist" aria-label="Control room boards"><button type="button" class="active" data-finance-board="update" aria-selected="true">Guided update</button><button type="button" data-finance-board="table" aria-selected="false">Q-values and policy</button></div>
-        <div data-finance-board-panel="update">
-          <article class="panel finance-learning-transition">
-            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>See what changed in the agent's memory</h3></div></div>
+        <div class="finance-guide" id="finance-guide" hidden><strong id="finance-guide-title">Observe the state</strong><p id="finance-guide-copy"></p><button type="button" id="finance-guide-next" class="button small secondary">Next calculation step</button>
+<article class="panel finance-learning-transition">
+            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>One observed Q-learning update</h3></div></div>
             <div id="finance-update-state" class="finance-update-state">No transition yet. Use Guided step to observe an action, reward, and Q-value update.</div>
             <div class="finance-update-grid"><div><small>Old Q(s,a)</small><strong id="finance-q-old">—</strong></div><div><small>Bellman target</small><strong id="finance-q-target">—</strong></div><div><small>TD error</small><strong id="finance-td-error">—</strong></div><div><small>Updated Q(s,a)</small><strong id="finance-q-new">—</strong></div></div>
             <p id="finance-update-formula" class="finance-update-formula">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</p>
             <p id="finance-recent-note" class="finance-small">The three Q-values below are updated live for the most recently visited state. Watch them change as training runs.</p>
             <div id="finance-live-q" class="finance-live-q"></div>
-          </article>
-        </div>
-        <div data-finance-board-panel="table" hidden>
-      <article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
-        </div>
-        </details>
+          </article></div>
+<details class="finance-detail-disclosure"><summary>Full Q-table and state visits</summary>
+<article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
+</details>
       </section>
       <details class="training-disclosure"><summary>Training and diagnostics</summary>
     <section class="finance-section" id="case-lab" aria-labelledby="lab-title">
@@ -140,7 +137,7 @@
           </div></div>
           <label class="finance-select-control" for="finance-budget">Training duration <select id="finance-budget"><option value="50">50 replay passes</option><option value="100">100 replay passes</option><option value="250">250 replay passes</option><option value="500" selected>500 replay passes</option></select></label>
           <label class="finance-select-control" for="finance-speed">Animation speed <select id="finance-speed"><option value="1">Slow · 1 week/frame</option><option value="8">Careful · 8 weeks/frame</option><option value="64" selected>Normal · 1 pass/frame</option><option value="256">Fast · 4 passes/frame</option></select></label>
-          <div class="finance-player"><button id="finance-train" class="button primary finance-start" type="button">▶ Start training</button><button id="finance-pause" class="button secondary" type="button" disabled>Ⅱ Pause</button></div>
+          
           <div class="finance-progress-details"><span id="finance-progress-label">Ready to start</span><strong id="finance-progress-percent">0%</strong></div>
           <div class="finance-progress-track" role="progressbar" id="finance-progress" aria-label="Training progress" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0"><span id="finance-progress-fill"></span></div>
           <button id="finance-reset" class="button secondary finance-action" type="button">↺ Reset training</button>
@@ -186,46 +183,47 @@
 
     <div class="finance-view" data-finance-panel="5" id="finance-challenge" hidden>
       <div class="finance-stage" data-stage="0">
-      <section class="finance-hero ch-hero">
+      <div class="finance-intro-layout"><header class="theory-header finance-hero ch-hero">
         <p class="eyebrow">Microsoft scenario</p>
         <h1>Q-learning with Microsoft stock</h1>
         <p class="finance-lead">The Apple walkthrough taught the Q-learning update. Now you control the learning process: train on Microsoft history, examine a market state's Q-values, compare two learned policies, and decide whether the improvement survives new data.</p>
+      </header>
+      <section class="theory-section"><div class="theory-section-title"><span>1</span><div><h2>Experiment specification</h2><p>One stock, cash, and a finite state-action table.</p></div></div>
         <div class="ch-mission">
           <div><small>DECISIONS</small><strong>0 · 50 · 100% Microsoft</strong></div>
           <div><small>STATES</small><strong>12 states · 36 Q-values</strong></div>
           <div><small>TRADING COST</small><strong>10 bps · fixed</strong></div>
           <div><small>DOWNSIDE PENALTY</small><strong>0.5 · fixed</strong></div>
         </div>
-        <p class="ch-caveat">Learning parameters can be varied independently. Compare the resulting policies and their risk–return behavior across the historical periods.</p>
+        <p class="theory-note">Learning parameters can be varied independently. Compare the resulting policies and their risk–return behavior across the historical periods.</p>
       </section>
 
-      <section class="finance-section ch-section">
-        <header class="ch-section-heading"><p class="eyebrow">The experiment</p><h2>Three chronological periods</h2><p>You can repeat training and inspect validation results as often as you like. The final 2023–2024 holdout is intended for one deliberate reveal, not parameter tuning.</p></header>
+      <section class="theory-section ch-section">
+        <div class="theory-section-title"><span>2</span><div><h2>Three chronological periods</h2><p>The final 2023–2024 period is reserved for a deliberate check, not repeated parameter tuning.</p></div></div>
         <div class="ch-periods">
           <article class="ch-period ch-period-train"><small>TRAIN</small><h3>2013–2019</h3><p id="ch-train-weeks">Training weeks</p><span>Q-values change as experience is replayed</span></article>
           <article class="ch-period ch-period-val"><small>VALIDATE</small><h3>2020–2022</h3><p id="ch-val-weeks">Validation weeks</p><span>Risk–return trade-offs and 2020 / 2021 / 2022 regime checks</span></article>
           <article class="ch-period ch-period-test"><small>FINAL CHECK</small><h3>2023–2024</h3><p id="ch-final-weeks">Final weeks</p><span>Optional reveal of one selected saved run</span></article>
         </div>
         <p class="finance-small">Microsoft closing prices are a separate educational dataset from the Apple example. Weekly prices come from a public historical collection, with investment-grade adjustment quality unverified. Each training pass replays the same market observations.</p>
-      </section>
+      </section></div>
 
       </div><div class="finance-stage" data-stage="1" hidden>
         <section class="finance-section"><div class="section-heading"><div><p class="eyebrow">Portfolio MDP</p><h2>One stock, cash, and 12 states</h2></div><p>Like Apple, the agent chooses 0%, 50%, or 100% stock. The state combines two momentum signals with the previous allocation. Microsoft adds distinct training, validation, and final periods.</p></div></section>
       </div><div class="finance-stage" data-stage="2" hidden>
-      <section class="finance-section finance-board-section"><div class="finance-live-boards boards-grid" aria-label="Live msft Q-learning boards">
-      <article class="board-panel"><div class="board-title"><span>01</span><div><h3>Greedy policy</h3><p>Best current action in each of 12 states</p></div></div><div class="finance-state-grid" id="msft-policy-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>02</span><div><h3>Greedy value estimate</h3><p>Maximum action value per state</p></div></div><div class="finance-state-grid" id="msft-value-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>03</span><div><h3>Action values Q(s,a)</h3><p id="msft-selected-state">Select a state on the policy board</p></div></div><div class="finance-board-values" id="msft-q-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>04</span><div><h3>Observed trajectory</h3><p>Most recent training transition</p></div></div><div class="finance-agent-state" id="msft-agent-board">No transition yet.</div></article>
-    </div></section>
-      <section class="finance-section"><div class="finance-control-actions"><button type="button" id="ch-guided-step" class="button primary">Guided step · one week</button></div>
-      <div class="finance-playback" aria-label="Playback controls">
+      <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="12 portfolio states and action values">
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="finance-state-matrix" id="msft-state-board"></div>
+      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="msft-agent-board">No transition yet.</p></div>
+    </article></section>
+      <section class="finance-section"><div class="finance-playback" aria-label="Playback controls">
       <span class="console-label">Playback</span>
+      <button type="button" class="button small primary" id="ch-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="microsoft">Fast step</button>
-      <button type="button" class="button small" data-finance-action="pass" data-for="microsoft">Run one pass</button>
-      <button type="button" class="button small" data-finance-action="ten" data-for="microsoft">Run 10 passes</button>
-      <button type="button" class="button small ghost" data-finance-action="reset" data-for="microsoft" data-reset="ch-reset">Reset</button>
-      <span class="finance-playback-note">A pass replays the same training weeks.</span>
+      <button type="button" class="button small" data-finance-action="ten" data-for="microsoft">10 steps</button>
+      <button type="button" class="button small primary" id="ch-start" disabled>Start training</button>
+      <button type="button" class="button small secondary" id="ch-pause" disabled>Pause</button>
+      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div>
       <div class="finance-guide" id="ch-guide" hidden><strong id="ch-guide-title">Observe and act</strong><p id="ch-guide-copy"></p><p id="ch-last-decision" hidden>No decisions yet.</p><button type="button" id="ch-guide-next" class="button small secondary">Next calculation step</button></div></section>
       <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectories and full policy table</summary>
@@ -251,7 +249,7 @@
               <label><span>Training passes</span><select id="ch-budget"><option>25</option><option>50</option><option selected>100</option><option>200</option><option>300</option></select></label>
               <label><span>Playback speed</span><select id="ch-speed"><option value="25">Slow · see weekly updates</option><option value="350" selected>Normal · live</option><option value="1500">Fast · overview</option></select></label>
             </div>
-            <div class="ch-buttons"><button type="button" class="button primary" id="ch-start" disabled>▶ Start learning</button><button type="button" class="button secondary" id="ch-pause" disabled>Pause</button><button type="button" class="button secondary" id="ch-week" disabled>Step 1 week</button><button type="button" class="button ghost" id="ch-reset">Reset</button></div>
+            <div class="finance-hidden-controls" hidden><button id="ch-week" disabled>Step 1 week</button><button id="ch-reset">Reset</button></div>
             <button type="button" class="button secondary" id="ch-defaults">Restore reference settings</button>
             <p class="finance-small" id="ch-runtime" role="status">Loading Python engine…</p>
             <div class="ch-experiment-note">Changing the learning parameters does not change Microsoft's returns, trading costs, or reward objective. This is essential for an interpretable experiment.</div>
@@ -300,13 +298,14 @@
 
     <div class="finance-view" data-finance-panel="6" id="finance-multi-asset" hidden>
       <div class="finance-stage" data-stage="0">
-      <section class="finance-hero ma-hero">
+      <div class="finance-intro-layout"><header class="theory-header finance-hero ma-hero">
         <p class="eyebrow">Multi-asset scenario · equities, bonds & cash</p>
         <h1>Multi-asset allocation with Q-learning</h1>
         <p class="finance-lead">Extend tabular Q-learning from Microsoft-versus-cash to allocation between the S&amp;P 500 ETF (SPY), a long-term Treasury bond ETF (TLT), and cash. Train a genuinely different environment with 24 states and 144 action values.</p>
+      </header><section class="theory-section"><div class="theory-section-title"><span>1</span><div><h2>Experiment specification</h2><p>Two risky assets, cash, and six possible allocations.</p></div></div>
         <div class="ch-mission"><div><small>MARKET SIGNALS</small><strong>4-week SPY &amp; TLT momentum</strong></div><div><small>ACTIONS</small><strong>Six allocations</strong></div><div><small>STATES</small><strong>24 states · 144 Q-values</strong></div><div><small>DATA</small><strong>Weekly 2016–2024</strong></div></div>
-        <p class="ch-caveat">The extension adds a bond asset and more allocation choices. Training uses reward relative to a fixed 50/50 reference; evaluation reports absolute portfolio returns after costs. Historical source prices have no independently verified dividend adjustment.</p>
-      </section>
+        <p class="theory-note">The extension adds a bond asset and more allocation choices. Training uses reward relative to a fixed 50/50 reference; evaluation reports absolute portfolio returns after costs. Historical source prices have no independently verified dividend adjustment.</p>
+      </section></div>
       </div><div class="finance-stage" data-stage="1" hidden>
       <section class="finance-section ma-section">
         <header class="ch-section-heading"><p class="eyebrow">01 · Environment design</p><h2>Two risky assets, six choices and a larger state space</h2><p>At each weekly decision, the agent sees whether SPY and TLT rose over the previous four weeks and remembers its last allocation. Its action chooses new SPY and TLT weights; leftover wealth stays in zero-yield cash.</p></header>
@@ -314,20 +313,19 @@
         <p class="ma-study-notes"><strong>Your investigation:</strong> Can a policy that has a choice of bonds and cash reduce downside exposure without giving up too much participation in recoveries? Do not assume bonds always hedge equity losses—2022 is a useful counterexample. Compare your policy to a transparent 50/50 portfolio.</p>
       </section>
       </div><div class="finance-stage" data-stage="2" hidden>
-      <section class="finance-section finance-board-section"><div class="finance-live-boards boards-grid" aria-label="Live multi Q-learning boards">
-      <article class="board-panel"><div class="board-title"><span>01</span><div><h3>Greedy policy</h3><p>Best current action in each of 24 states</p></div></div><div class="finance-state-grid" id="multi-policy-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>02</span><div><h3>Greedy value estimate</h3><p>Maximum action value per state</p></div></div><div class="finance-state-grid" id="multi-value-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>03</span><div><h3>Action values Q(s,a)</h3><p id="multi-selected-state">Select a state on the policy board</p></div></div><div class="finance-board-values" id="multi-q-board"></div></article>
-      <article class="board-panel"><div class="board-title"><span>04</span><div><h3>Observed trajectory</h3><p>Most recent training transition</p></div></div><div class="finance-agent-state" id="multi-agent-board">No transition yet.</div></article>
-    </div></section>
-      <section class="finance-section ma-section"><div class="finance-control-actions"><button type="button" id="ma-guided-step" class="button primary">Guided step · one week</button></div>
-      <div class="finance-playback" aria-label="Playback controls">
+      <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="24 portfolio states and action values">
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="finance-state-matrix" id="multi-state-board"></div>
+      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="multi-agent-board">No transition yet.</p></div>
+    </article></section>
+      <section class="finance-section ma-section"><div class="finance-playback" aria-label="Playback controls">
       <span class="console-label">Playback</span>
+      <button type="button" class="button small primary" id="ma-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="multi">Fast step</button>
-      <button type="button" class="button small" data-finance-action="pass" data-for="multi">Run one pass</button>
-      <button type="button" class="button small" data-finance-action="ten" data-for="multi">Run 10 passes</button>
-      <button type="button" class="button small ghost" data-finance-action="reset" data-for="multi" data-reset="ma-reset">Reset</button>
-      <span class="finance-playback-note">A pass replays the same training weeks.</span>
+      <button type="button" class="button small" data-finance-action="ten" data-for="multi">10 steps</button>
+      <button type="button" class="button small primary" id="ma-start" disabled>Start training</button>
+      <button type="button" class="button small secondary" id="ma-pause" disabled>Pause</button>
+      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div>
       <div class="finance-guide" id="ma-guide" hidden><strong id="ma-guide-title">Observe and act</strong><p id="ma-guide-copy"></p><p id="ma-last-decision" hidden>No decisions yet.</p><button type="button" id="ma-guide-next" class="button small secondary">Next calculation step</button></div></section>
       <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectories and selected state</summary>
@@ -346,7 +344,7 @@
           <label class="ch-slider"><span>Exploration ε <output id="ma-epsilon-out">0.25</output></span><input id="ma-epsilon" type="range" min="0" max="0.80" step="0.01" value="0.25"></label>
           <label><strong>Training passes</strong><select id="ma-budget"><option>25</option><option selected>100</option><option>250</option><option>400</option></select></label>
           <label><strong>Playback</strong><select id="ma-speed"><option value="20">Slow · individual weeks</option><option value="350" selected>Normal</option><option value="1200">Fast</option></select></label>
-          <div class="ch-buttons"><button class="button primary" id="ma-start" disabled>▶ Start training</button><button class="button secondary" id="ma-pause" disabled>Pause</button><button class="button secondary" id="ma-step" disabled>Step 1 week</button><button class="button ghost" id="ma-reset">Reset</button></div>
+          <div class="finance-hidden-controls" hidden><button id="ma-step" disabled>Step 1 week</button><button id="ma-reset">Reset</button></div>
           <p class="finance-small" id="ma-runtime" role="status">Waiting for Python runtime…</p>
         </aside><article class="ma-console">
           <div class="ch-live-top"><div><p class="eyebrow">Live Python · Q-learning</p><h3 id="ma-title">Ready to learn</h3></div><strong id="ma-passes">0 / 100</strong></div>
@@ -1344,10 +1342,9 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     $("finance-decision").innerHTML=props.map(([k,v])=>`<div><small>${k}</small><strong>${v}</strong></div>`).join("");
   }
   window.financeAdvance ??= {};
-  window.financeAdvance.apple = passes => {
+  window.financeAdvance.apple = weeks => {
     if (!pythonReady || playing || model.passes >= budget()) return;
-    const remaining = Math.max(0, budget() - model.passes);
-    runWeeks(passes === 0 ? 1 : Math.min(passes,remaining)*trainIndices.length - model.position);
+    runWeeks(Math.min(weeks,(budget()-model.passes)*trainIndices.length-model.position));
   };
   $("finance-step").addEventListener("click",()=>{if (!playing)runWeeks(1);});
   $("finance-train").addEventListener("click",startPlayback);
@@ -1659,9 +1656,9 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   $('ch-defaults').addEventListener('click',()=>{for(const [p,v]of Object.entries(REFERENCE))$('ch-'+p).value=v;reset();});
   $('ch-start').addEventListener('click',start);$('ch-pause').addEventListener('click',pause);
   window.financeAdvance ??= {};
-  window.financeAdvance.microsoft = passes => {
+  window.financeAdvance.microsoft = weeks => {
     if (!ready || running || live.passes >= cfg().budget) return;
-    step(passes === 0 ? 1 : Math.min(passes,cfg().budget-live.passes)*segments.trainWeeks-live.position);
+    step(Math.min(weeks,(cfg().budget-live.passes)*segments.trainWeeks-live.position));
   };
   $('ch-week').addEventListener('click',()=>step(1));$('ch-reset').addEventListener('click',reset);
   $('ch-validate').addEventListener('click',validation);$('ch-compare').addEventListener('click',compare);
@@ -1816,9 +1813,9 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   for(const p of ['alpha','gamma','epsilon','budget'])$('ma-'+p).addEventListener('input',reset);
   $('ma-start').addEventListener('click',start);
   window.financeAdvance ??= {};
-  window.financeAdvance.multi = passes => {
+  window.financeAdvance.multi = weeks => {
     if (!ready || running || live.passes >= cfg().budget) return;
-    step(passes === 0 ? 1 : Math.min(passes,cfg().budget-live.passes)*live.trainWeeks-live.position);
+    step(Math.min(weeks,(cfg().budget-live.passes)*live.trainWeeks-live.position));
   };
   $('ma-step').addEventListener('click',()=>step(1));
   $('ma-pause').addEventListener('click',()=>{stop();status('Training paused. Examine Q-values, then continue or reset.');render();});

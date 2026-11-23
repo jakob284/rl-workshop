@@ -384,3 +384,68 @@
   .finance-board-values { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .finance-main .training-disclosure .finance-section { padding: 24px 15px; }
 }
+
+/* Introduction uses the same academic header and numbered sections as Basics. */
+.finance-intro-layout { max-width: 1440px; margin: 0 auto; padding: 70px max(5vw, calc((100vw - 1440px)/2)) 42px; }
+.finance-intro-layout .finance-hero { padding: 38px 42px; background: var(--white); text-align: center; }
+.finance-intro-layout .finance-hero h1 { max-width: none; font-family: Inter, ui-sans-serif, sans-serif; font-size: clamp(34px,4vw,54px); font-weight: 650; letter-spacing: -.035em; }
+.finance-intro-layout .finance-lead { max-width: 800px; margin: 18px auto 0; color: var(--muted); font-size: 16px; line-height: 1.5; }
+.finance-intro-layout .finance-hero-actions { justify-content: center; margin-top: 20px; }
+.finance-intro-layout .finance-hero-actions a { padding: 4px 2px; border: 0; border-radius: 0; border-bottom: 1px solid var(--mint-dark); font-size: 13px; font-weight: 650; }
+.finance-intro-layout .finance-disclaimer { margin: 18px auto 0; }
+.finance-intro-layout .theory-section { max-width: none; margin: 18px 0 0; padding: 28px; background: var(--white); }
+.finance-intro-layout .theory-section-title h2 { font-family: Inter, ui-sans-serif, sans-serif; font-size: 24px; font-weight: 700; }
+.finance-intro-layout .finance-intro-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.finance-intro-layout .finance-intro-card, .finance-intro-layout .ch-mission > div, .finance-intro-layout .ch-period { min-height: 135px; padding: 20px; border: 1px solid var(--line); border-radius: 0; background: #fbfaf6; box-shadow: none; }
+.finance-intro-layout .finance-intro-card h3 { margin: 0 0 9px; font-size: 16px; }
+.finance-intro-layout .finance-intro-card p { font-size: 13px; line-height: 1.5; }
+.finance-intro-layout .finance-intro-number { display: none; }
+.finance-intro-layout .finance-scenario { margin-top: 0; border-radius: 0; background: #fbfaf6; color: var(--ink); }
+.finance-intro-layout .finance-scenario-copy { padding: 24px 28px; }
+.finance-intro-layout .finance-scenario-copy .eyebrow { color: var(--mint-dark); }
+.finance-intro-layout .finance-scenario-copy h3 { font: 700 18px Inter, ui-sans-serif, sans-serif; }
+.finance-intro-layout .finance-scenario-copy > p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.finance-intro-layout .finance-scenario-copy .finance-scenario-foot { color: var(--muted); }
+.finance-intro-layout .finance-scenario-detail { background: #f7f9f4; }
+.finance-intro-layout .ch-mission { margin-top: 0; }
+.finance-intro-layout .ch-mission strong { color: var(--ink); }
+.finance-intro-layout .ch-periods { margin-top: 0; }
+.finance-intro-layout .ch-period h3 { color: var(--ink); }
+.finance-intro-layout .theory-note { margin-top: 16px; }
+
+/* Finance has one state-action panel instead of the grid-world's four boards. */
+.finance-state-panel { color: var(--white); padding: 24px; }
+.finance-state-panel .board-title { margin-bottom: 18px; }
+.finance-state-panel .board-title h3 { font-size: 17px; }
+.finance-state-matrix { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.finance-state-card { display: block; min-width: 0; padding: 14px; border: 1px solid rgba(255,255,255,.15); border-radius: 9px; background: #203940; color: var(--white); text-align: left; cursor: pointer; }
+.finance-state-card:hover { border-color: var(--mint); }
+.finance-state-card.selected { outline: 2px solid var(--mint); }
+.finance-state-card.observed { border-color: var(--amber); }
+.finance-state-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.finance-state-head strong { font-size: 17px; }
+.finance-state-head b { color: var(--amber); font-size: 17px; }
+.finance-state-signals { display: block; margin: 6px 0 12px; color: #b9c8ca; font-size: 11px; }
+.finance-state-qs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
+.finance-state-q { min-width: 0; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.13); }
+.finance-state-q small, .finance-state-q strong { display: block; white-space: nowrap; font-size: 10px; font-variant-numeric: tabular-nums; }
+.finance-state-q small { color: #a8c2c0; }
+.finance-state-q strong { margin-top: 3px; font-size: 12px; }
+.finance-state-q.preferred strong { color: var(--amber); }
+.finance-agent-readout { margin-top: 16px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.15); color: #d4e2de; font-size: 13px; }
+.finance-agent-readout strong { color: var(--mint); }
+.finance-agent-readout p { margin: 4px 0 0; }
+#multi-state-board { max-height: 670px; overflow-y: auto; padding: 2px; }
+.finance-guide .finance-learning-transition { margin-top: 16px; padding: 18px; box-shadow: none; }
+.finance-playback { margin-top: 16px; }
+.finance-playback .button { white-space: nowrap; }
+.finance-hidden-controls[hidden] { display: none !important; }
+@media (max-width: 900px) { .finance-state-matrix { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 680px) {
+  .finance-intro-layout { padding: 40px 12px 60px; }
+  .finance-intro-layout .finance-hero, .finance-intro-layout .theory-section { padding: 20px; }
+  .finance-intro-layout .finance-intro-grid, .finance-intro-layout .ch-mission, .finance-intro-layout .ch-periods { grid-template-columns: 1fr; }
+  .finance-state-matrix { grid-template-columns: 1fr; }
+  .finance-state-panel { padding: 15px; }
+  #multi-state-board { max-height: 520px; }
+}
