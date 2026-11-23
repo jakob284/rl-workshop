@@ -201,7 +201,7 @@
         <section class="finance-section"><div class="section-heading"><div><p class="eyebrow">Portfolio MDP</p><h2>One stock, cash, and 12 states</h2></div><p>Like Apple, the agent chooses 0%, 50%, or 100% stock. The state combines two momentum signals with the previous allocation. Microsoft adds distinct training, validation, and final periods.</p></div></section>
       </div><div class="finance-stage" data-stage="2" hidden>
       <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="12 portfolio states and action values">
-      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to compare its action values.</p></div></div>
       <div class="finance-state-matrix" id="msft-state-board"></div>
       
     </article></section>
@@ -223,16 +223,6 @@
   <p class="finance-guide-result" id="ch-guide-result" hidden></p>
   <p id="ch-last-decision" hidden></p>
 </div></section>
-      <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectory for a selected state</summary>
-      <section class="finance-section ch-section ch-inspect">
-        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Action values and learned policy</h2><p>Choose a market state. The plot shows the three Q-values for this state after each completed training pass. The state panel above shows the current policy.</p></header>
-        <div class="ch-inspection-top"><label for="ch-state"><strong>Inspect a state</strong><select id="ch-state" aria-label="Choose market state"></select></label><p id="ch-state-definition">Select a state to inspect short-term momentum, long-term momentum, and previous allocation.</p></div>
-        <div class="ch-visual-grid">
-          <div class="ch-live"><div class="ch-chart-head"><span><strong>Three Q-values over training</strong></span><span><i class="ch-dot ch-cash"></i>Cash <i class="ch-dot ch-half"></i>50% <i class="ch-dot ch-full"></i>100%</span></div><svg id="ch-q-chart" viewBox="0 0 780 285" role="img" aria-label="Q-value learning trajectory for selected state"><text x="390" y="145" text-anchor="middle" class="finance-empty-chart">Complete a training pass to plot Q-values</text></svg><p id="ch-state-readout" class="finance-small">Q-values start at zero, so the initial choice is a tie.</p></div>
-
-        </div>
-      </section>
-      </details>
 
       <details class="training-disclosure"><summary>Training and diagnostics</summary>
       <section class="finance-section ch-section ch-config" id="challenge-lab">
@@ -311,7 +301,7 @@
       </section>
       </div><div class="finance-stage" data-stage="2" hidden>
       <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="24 portfolio states and action values">
-      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to compare its action values.</p></div></div>
       <div class="finance-state-matrix" id="multi-state-board"></div>
       
     </article></section>
@@ -333,13 +323,6 @@
   <p class="finance-guide-result" id="ma-guide-result" hidden></p>
   <p id="ma-last-decision" hidden></p>
 </div></section>
-      <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectories and selected state</summary>
-      <section class="finance-section ma-section">
-        <header class="ch-section-heading"><p class="eyebrow">03 · Inspect the policy</p><h2>Action values and allocation policy</h2><p>Select a state and watch all six Q-values evolve across completed training passes. Different market signals and previous holdings may generate different allocation choices.</p></header>
-        <div class="ma-selected"><label for="ma-state"><strong>Market state</strong></label><select id="ma-state"></select><span class="finance-small" id="ma-best">No training yet.</span></div>
-        <div class="ma-panel"><div class="ch-chart-head"><span>Actual Q-values · selected state</span><span>Six allocation choices</span></div><svg id="ma-q-chart" viewBox="0 0 780 265" aria-label="Six learned Q-values over training passes" role="img"></svg><div id="ma-action-values" class="finance-small"></div></div>
-      </section>
-      </details>
       <details class="training-disclosure"><summary>Training and diagnostics</summary>
       <section class="finance-section ma-section">
         <header class="ch-section-heading"><p class="eyebrow">02 · Train a new Python agent</p><h2>Training and diagnostics</h2><p>The agent learns from 2016–2019 using a benchmark-relative reward, and training restarts with a fresh Q-table when you change parameters. Each pass repeats the same historical weeks. You may pause, inspect the Q-table, and run different settings freely.</p></header>
@@ -1489,23 +1472,6 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     const ma=h.map((_,i)=>{const recent=h.slice(Math.max(0,i-19),i+1);return recent.reduce((a,b)=>a+b,0)/recent.length;});
     svgPlot('ch-training-chart',[{values:h,color:'#12674f'},{values:ma,color:'#b58b27'},{values:g,color:'#2f67bd'}],cfg().budget,'Start training to draw real reward curves');
   }
-  function qChart(){
-    if(!ready||!live){return;}
-    try{
-      const trace=call('trace',{state:selectedState}),q=trace.q;
-      svgPlot('ch-q-chart',[
-        {values:q.map(row=>row[0]),color:'#64748b'},
-        {values:q.map(row=>row[1]),color:'#c58b2b'},
-        {values:q.map(row=>row[2]),color:'#12674f'}
-      ],cfg().budget,'Complete a training pass to see actual Q-values',v=>v.toFixed(3));
-      const best=argmax(live.q[selectedState]),vals=live.q[selectedState];
-      $('ch-state-readout').textContent=`After ${live.passes} passes: Q(cash)=${dec(vals[0],4)}, Q(50%)=${dec(vals[1],4)}, Q(100%)=${dec(vals[2],4)}. Current greedy choice: ${WEIGHTS[best]}% MSFT. This state has been visited ${trace.visits} times.`;
-    }catch(e){$('ch-state-readout').textContent='Q-trace unavailable: '+String(e.message||e);}
-  }
-  function renderState(){
-    $('ch-state-definition').textContent=stateDesc(selectedState);
-    qChart();
-  }
   function render(){
     if(!ready||!live){controls();return;}
     const budget=cfg().budget,progress=(live.passes*segments.trainWeeks+live.position)/(budget*segments.trainWeeks);
@@ -1523,7 +1489,7 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     }else $('ch-last-decision').textContent='No market decisions yet. Press Step 1 week to inspect an individual Bellman update.';
     const counts=[0,0,0];live.q.forEach(row=>counts[argmax(row)]++);
     $('ch-policy').textContent=`Across 12 states, the current greedy policy chooses cash in ${counts[0]}, 50% MSFT in ${counts[1]}, and 100% MSFT in ${counts[2]}. Ties are broken toward cash.`;
-    rewardChart();renderState();controls();
+    rewardChart();controls();
     window.renderFinanceBoards?.('msft',live.q,live.last,!running&&live.passes<budget,{currentReward:live.currentReward,date:live.last?market[live.last.t].date:null});
   }
   const fnum=(x,n=2)=>x==null?'—':Number(x).toFixed(n);
@@ -1618,10 +1584,8 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     try{await navigator.clipboard.writeText(text);$('ch-copy').textContent='Copied';}
     catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.append(ta);ta.select();document.execCommand('copy');ta.remove();$('ch-copy').textContent='Copied';}
   }
-  // Supply the state menu immediately, even while Python is still initializing.
-  for(let i=0;i<12;i++)$('ch-state').insertAdjacentHTML('beforeend',`<option value="${i}">State ${i} · ${stateDesc(i)}</option>`);
   for(const p of ['alpha','gamma','epsilon','budget'])$('ch-'+p).addEventListener('input',reset);
-  $('ch-state').addEventListener('change',()=>{selectedState=Number($('ch-state').value);renderState();});
+  document.addEventListener('finance-state-select',e=>{if(e.detail.kind==='msft')selectedState=e.detail.state;});
   $('ch-defaults').addEventListener('click',()=>{for(const [p,v]of Object.entries(REFERENCE))$('ch-'+p).value=v;reset();});
   $('ch-start').addEventListener('click',start);$('ch-pause').addEventListener('click',pause);
   window.financeAdvance ??= {};
@@ -1719,17 +1683,6 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     h+=`<text class="ch-plot-label" x="${L}" y="${B+20}">Pass 1</text><text class="ch-plot-label" x="${R}" y="${B+20}" text-anchor="end">Pass ${budget}</text>`;
     svg.innerHTML=h;
   }
-  function drawQ(){
-    if(!ready)return;
-    try{
-      const trace=call('trace',{state:selectedState}).values;
-      plot('ma-q-chart', actions.map((label,a)=>({values:trace.map(row=>row[a]),color:colors[a]})),
-        cfg().budget,'Complete one training pass to view six actual Q-values');
-      const row=live.q[selectedState],b=best(row);
-      $('ma-best').textContent=`Current greedy decision: ${actions[b]} · ${live.passes} training passes`;
-      $('ma-action-values').innerHTML='<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px">'+row.map((v,i)=>`<span><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colors[i]};margin-right:5px"></i>${actions[i]}: <strong>${v.toFixed(4)}</strong></span>`).join('')+'</div>';
-    }catch(e){$('ma-best').textContent='Q-values unavailable: '+String(e.message||e);}
-  }
   function render(){
     if(!ready){controls();return;}
     const budget=cfg().budget,progress=(live.passes*live.trainWeeks+live.position)/(budget*live.trainWeeks);
@@ -1744,7 +1697,7 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     $('ma-last-decision').textContent=z?`Realized ${z.date}: ${stateDesc(z.state)}; chose ${actions[z.action]}; reward ${displayPct(z.reward)}; TD error ${z.td.toFixed(4)}. A later market return determines the reward.`:'Step through a week to see an action and its Q-learning update.';
     plot('ma-reward-chart',[{values:live.history,color:'#12674f'},
         {values:live.greedyHistory,color:'#2f67bd'}],budget,'Start training to see reward curves');
-    drawQ();controls();
+    controls();
     window.renderFinanceBoards?.('multi',live.q,live.last,!running&&live.passes<budget,{currentReward:live.currentReward,date:live.last?.date});
   }
   function metricsTable(results){
@@ -1779,8 +1732,6 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
       controls();
     }catch(e){status('Final reveal failed: '+String(e.message||e));}
   }
-  for(let s=0;s<24;s++)$('ma-state').insertAdjacentHTML('beforeend',`<option value="${s}">${stateDesc(s)}</option>`);
-  $('ma-state').addEventListener('change',()=>{selectedState=Number($('ma-state').value);drawQ();});
   for(const p of ['alpha','gamma','epsilon','budget'])$('ma-'+p).addEventListener('input',reset);
   $('ma-start').addEventListener('click',start);
   window.financeAdvance ??= {};

@@ -53,8 +53,7 @@
     for (const [field, text] of Object.entries(readout)) $(kind + "-read-" + field).textContent = text;
     board.querySelectorAll("[data-state]").forEach(card => card.addEventListener("click", () => {
       selected[kind] = Number(card.dataset.state);
-      const selector = $(kind === "msft" ? "ch-state" : kind === "multi" ? "ma-state" : "no-select");
-      if (selector) { selector.value = selected[kind]; selector.dispatchEvent(new Event("change")); }
+      document.dispatchEvent(new CustomEvent("finance-state-select", { detail: { kind, state: selected[kind] } }));
       draw(kind);
     }));
     const actionKind = kind === "msft" ? "microsoft" : kind;
@@ -68,9 +67,6 @@
     draw(kind);
   };
   window.finishFinanceGuided = kind => { delete held[kind]; draw(kind); };
-  for (const [id, kind] of [["ch-state", "msft"], ["ma-state", "multi"]]) {
-    $(id).addEventListener("change", event => { selected[kind] = Number(event.target.value); draw(kind); });
-  }
   for (const kind of Object.keys(guideButton)) {
     $(guideButton[kind]).disabled = true;
     $(guideButton[kind]).addEventListener("click", () => {
