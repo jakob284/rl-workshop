@@ -30,10 +30,10 @@
     <div class="finance-step-list">
       <button type="button" class="finance-step-link active" data-finance-view="0" aria-current="step">Overview</button>
       <button type="button" class="finance-step-link" data-finance-view="1">Portfolio MDP</button>
-      <button type="button" class="finance-step-link" data-finance-view="2">Training</button>
-      <button type="button" class="finance-step-link" data-finance-view="3">Evaluation</button>
+      <button type="button" class="finance-step-link" data-finance-view="2">Control room</button>
+      <button type="button" class="finance-step-link" data-finance-view="3">Training</button>
+      <button type="button" class="finance-step-link" data-finance-view="4">Evaluation</button>
     </div>
-    <div class="finance-nav-track" aria-hidden="true"><span id="finance-nav-progress"></span></div>
   </nav>
 
   <div class="finance-engine-strip" role="status" aria-live="polite"><span class="finance-engine-dot"></span><span id="finance-runtime">Initializing Python runtime…</span></div>
@@ -81,14 +81,34 @@
         <article class="panel finance-method-card"><span class="finance-step">Classical dynamic programming</span><h3>Know a transition model</h3><p>With known rewards and transition probabilities, Bellman backups average over possible outcomes and compute optimal values within the model.</p><div class="finance-equation small">Q*(s,a) = E[r + γ max Q*(s′,·) | s,a]</div></article>
         <article class="panel finance-method-card"><span class="finance-step">Tabular Q-learning</span><h3>Learn from observed transitions</h3><p>We do not supply the market transition probabilities. The agent updates a Q-table using realized weekly returns from the training period.</p><div class="finance-equation small">Q ← Q + α [r + γ max Q(s′,·) − Q]</div></article>
       </div>
-      <p class="finance-method-caveat"><strong>Important modeling assumption:</strong> Our state contains only two binary momentum signals and the previous target weight. It is a deliberately incomplete description of financial markets, not a verified Markov state.</p>
     </section>
     </div>
 
-    <div class="finance-view" id="finance-experiment" data-finance-panel="2">
+    <div class="finance-view" id="finance-control-room" data-finance-panel="2" hidden>
+      <section class="finance-section" aria-labelledby="apple-control-title">
+        <div class="section-heading"><div><p class="eyebrow">Q-learning · control room</p><h2 id="apple-control-title">Watch one decision change the agent</h2></div><p>Advance one historical week, inspect the Bellman update, then follow the learned values across all 12 states.</p></div>
+        <div class="finance-control-actions"><button id="finance-step" class="button primary" type="button">Guided step · one week</button><span>A step updates the real Python Q-table; it does not reveal the evaluation period.</span></div>
+        <div class="finance-guide" id="finance-guide" hidden><strong id="finance-guide-title">Observe the state</strong><p id="finance-guide-copy"></p><button type="button" id="finance-guide-next" class="button small secondary">Next calculation step</button></div>
+        <div class="finance-board-tabs" role="tablist" aria-label="Control room boards"><button type="button" class="active" data-finance-board="update" aria-selected="true">Guided update</button><button type="button" data-finance-board="table" aria-selected="false">Q-values and policy</button></div>
+        <div data-finance-board-panel="update">
+          <article class="panel finance-learning-transition">
+            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>See what changed in the agent's memory</h3></div></div>
+            <div id="finance-update-state" class="finance-update-state">No transition yet. Use Guided step to observe an action, reward, and Q-value update.</div>
+            <div class="finance-update-grid"><div><small>Old Q(s,a)</small><strong id="finance-q-old">—</strong></div><div><small>Bellman target</small><strong id="finance-q-target">—</strong></div><div><small>TD error</small><strong id="finance-td-error">—</strong></div><div><small>Updated Q(s,a)</small><strong id="finance-q-new">—</strong></div></div>
+            <p id="finance-update-formula" class="finance-update-formula">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</p>
+            <p id="finance-recent-note" class="finance-small">The three Q-values below are updated live for the most recently visited state. Watch them change as training runs.</p>
+            <div id="finance-live-q" class="finance-live-q"></div>
+          </article>
+        </div>
+        <div data-finance-board-panel="table" hidden>
+      <article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
+        </div>
+      </section>
+    </div>
+
+    <div class="finance-view" id="finance-experiment" data-finance-panel="3">
     <section class="finance-section" id="case-lab" aria-labelledby="lab-title">
-      <div class="section-heading"><div><p class="eyebrow">02 · Browser experiment</p><h2 id="lab-title">Watch an agent learn, one decision at a time</h2></div><p>Watch the agent update Q-values from observed returns, then reveal how the frozen policy performs on later weeks. Each replay pass uses the <strong>same 64 training weeks</strong>; repeated passes do not create new data.</p></div>
-      <div class="finance-learning-instructions"><div><strong>01 · Configure</strong><span>Adjust costs, reward objective and learning parameters.</span></div><div><strong>02 · Watch</strong><span>Press Start; rewards, decisions and Q-values update automatically.</span></div><div><strong>03 · Evaluate</strong><span>Freeze the policy and reveal held-out returns only afterwards.</span></div></div>
+      <div class="section-heading"><div><p class="eyebrow">Training</p><h2 id="lab-title">Train the Apple agent</h2></div><p>Choose settings and watch the reward change as the agent replays the same 64 historical weeks. Evaluation happens on the next page.</p></div>
       <div class="finance-lab-grid">
         <aside class="panel finance-controls">
           <div class="panel-header"><div><span class="panel-kicker">Q-learning configuration</span><h3>Experiment setup</h3></div></div>
@@ -110,7 +130,6 @@
           <div class="finance-player"><button id="finance-train" class="button primary finance-start" type="button">▶ Start training</button><button id="finance-pause" class="button secondary" type="button" disabled>Ⅱ Pause</button></div>
           <div class="finance-progress-details"><span id="finance-progress-label">Ready to start</span><strong id="finance-progress-percent">0%</strong></div>
           <div class="finance-progress-track" role="progressbar" id="finance-progress" aria-label="Training progress" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0"><span id="finance-progress-fill"></span></div>
-          <details class="finance-step-details"><summary>Inspect a single weekly update</summary><p>Pause autoplay and advance one week at a time to examine the Bellman calculation.</p><button id="finance-step" class="button secondary finance-action" type="button">Step one week →</button></details>
           <button id="finance-reset" class="button secondary finance-action" type="button">↺ Reset training</button>
           <p id="finance-status" class="finance-status" role="status" aria-live="polite">Ready. Choose the settings above, then press Start training.</p>
           <p class="finance-small">Changing the learning settings resets training. Speed can be changed while the animation is playing. Only 64 distinct historical weeks update the Q-table; later observations are held out for testing.</p>
@@ -121,30 +140,21 @@
             <article class="finance-stat"><small>Training reward · last pass</small><strong id="stat-training-reward">—</strong><span>Sum of agent rewards; not return %</span></article>
             <article class="finance-stat"><small>Exploration probability</small><strong id="stat-exploration">25%</strong><span>Chance of random action this pass</span></article><article class="finance-stat"><small>Latest weekly RL reward</small><strong id="stat-last-reward">—</strong><span>Updates after each observed decision</span></article>
           </div>
-          <article class="panel finance-chart-card finance-learning-card finance-detail" data-detail-panel="reward">
+          <article class="panel finance-chart-card finance-learning-card">
             <div class="chart-header"><div><span class="panel-kicker">Learning process · same historical training weeks replayed</span><h3>How does the training reward evolve?</h3></div><span id="finance-learning-counter" class="finance-chart-counter">0 passes</span></div>
             <svg id="finance-learning-chart" viewBox="0 0 760 285" role="img" aria-label="Reward per training replay pass"></svg>
             <div class="finance-legend"><span><i style="background:#12674f"></i>Exploratory agent reward</span><span><i style="background:#294fbe"></i>Greedy policy reward on training data</span><span><i style="background:#b58b27"></i>20-pass average agent reward</span></div>
             <div class="finance-policy-now" id="finance-policy-now" aria-live="off"><div class="finance-policy-title"><strong>How the learned policy is changing</strong><small>Current greedy choice across all 12 states</small></div><div class="finance-policy-bars" id="finance-policy-bars"></div><p id="finance-policy-note">Initially all actions are tied; the displayed policy is arbitrary until training updates its Q-values.</p></div>
             <p class="finance-small">Each point sums the reward over one 64-week replay (returns − costs − downside penalty). The greedy series evaluates the current policy on the <strong>same training history</strong> without exploration. More passes cannot create independent observations or demonstrate investment skill.</p>
           </article>
-          <div class="finance-detail-tabs" role="tablist" aria-label="Training displays"><button type="button" class="active" data-finance-detail="reward" aria-selected="true">Training reward</button><button type="button" data-finance-detail="memory" aria-selected="false">Agent memory</button></div>
-          <article class="panel finance-learning-transition finance-detail" data-detail-panel="memory" hidden>
-            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>See what changed in the agent's memory</h3></div></div>
-            <div id="finance-update-state" class="finance-update-state">No transition yet. Click “Step forward one week” to observe an action, reward, and Q-value update.</div>
-            <div class="finance-update-grid"><div><small>Old Q(s,a)</small><strong id="finance-q-old">—</strong></div><div><small>Bellman target</small><strong id="finance-q-target">—</strong></div><div><small>TD error</small><strong id="finance-td-error">—</strong></div><div><small>Updated Q(s,a)</small><strong id="finance-q-new">—</strong></div></div>
-            <p id="finance-update-formula" class="finance-update-formula">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</p>
-            <p id="finance-recent-note" class="finance-small">The three Q-values below are updated live for the most recently visited state. Watch them change as training runs.</p>
-            <div id="finance-live-q" class="finance-live-q"></div>
-          </article>
         </div>
       </div>
     </section>
     </div>
 
-    <div class="finance-view" id="finance-evaluation" data-finance-panel="3">
+    <div class="finance-view" id="finance-evaluation" data-finance-panel="4">
     <section class="finance-section" aria-labelledby="results-title">
-      <div class="section-heading"><div><p class="eyebrow">03 · Inspect the evidence</p><h2 id="results-title">Inspect the learned policy and its limitations</h2></div><p>After freezing the policy, check the out-of-sample benchmarks. A rising training curve alone cannot prove the agent generalizes.</p></div>
+      <div class="section-heading"><div><p class="eyebrow">Evaluation</p><h2 id="results-title">Inspect the learned policy and its limitations</h2></div><p>After freezing the policy, check the out-of-sample benchmarks. A rising training curve alone cannot prove the agent generalizes.</p></div>
       <button id="finance-evaluate" class="button primary" disabled type="button">Evaluate frozen policy</button>
           <div class="finance-comparison-heading"><div><p class="eyebrow">Separate evaluation · no learning on future weeks</p><h3>Performance after freezing the Q-table</h3></div><p>Evaluate only when ready. This later period must not be used to select hyperparameters.</p></div>
           <div class="finance-metric-row"><article class="finance-stat"><small>Q-learning · net test return</small><strong id="stat-rl">—</strong><span>After simplified trading costs</span></article><article class="finance-stat"><small>100% Apple · net test return</small><strong id="stat-apple">—</strong><span>Same observation period</span></article><article class="finance-stat"><small>RL allocation changes</small><strong id="stat-changes">—</strong><span>Transitions in the evaluation period</span></article></div>
@@ -152,19 +162,18 @@
           <div id="finance-run-compare"></div></article>
           <article class="panel finance-chart-card"><div class="chart-header"><div><span class="panel-kicker">Held-out historical weeks · evaluate explicitly</span><h3>Cumulative test-period wealth</h3></div></div><svg id="finance-wealth-chart" viewBox="0 0 760 310" role="img" aria-label="Cumulative wealth chart for RL and benchmark policies"></svg><div id="finance-chart-legend" class="finance-legend"></div><p class="finance-small" id="finance-compare-note">No test results yet. Train the agent, then click “Compare frozen policy”. The test observations never update Q-values.</p></article>
       <div class="finance-results-grid">
-        <article class="panel finance-result-card"><h3>Evaluation-period comparison</h3><p id="finance-results-placeholder" class="finance-empty-note">Not evaluated yet. Return to “Watch learning”, complete some training, then click “Compare frozen policy”.</p><div class="finance-table-scroll"><table class="finance-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Turnover</th><th>Changes</th></tr></thead><tbody id="finance-results-body"></tbody></table></div><p class="finance-small">Benchmarks: full Apple exposure, weekly 50% Apple target, cash, and an all-in/two-horizon momentum rule. Identical cost parameter and evaluation dates are used throughout.</p></article>
+        <article class="panel finance-result-card"><h3>Evaluation-period comparison</h3><p id="finance-results-placeholder" class="finance-empty-note">Not evaluated yet. Complete training, then evaluate the frozen policy here.</p><div class="finance-table-scroll"><table class="finance-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Turnover</th><th>Changes</th></tr></thead><tbody id="finance-results-body"></tbody></table></div><p class="finance-small">Benchmarks: full Apple exposure, weekly 50% Apple target, cash, and an all-in/two-horizon momentum rule. Identical cost parameter and evaluation dates are used throughout.</p></article>
         <article class="panel finance-result-card"><h3>Inspect a weekly decision</h3><label class="finance-select-label" for="finance-week">Evaluation decision week</label><select id="finance-week"></select><div id="finance-decision" class="finance-decision"></div><p class="finance-small">The decision at week <em>t</em> sees prices through <em>t</em> only; the next-week return is shown <em>after</em> the action for explanation.</p></article>
       </div>
-      <article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
     </section>
 
     <section class="finance-section finance-takeaways" aria-labelledby="takeaways-title"><div class="section-heading"><div><p class="eyebrow">04 · Discussion</p><h2 id="takeaways-title">What this does—and does not—show</h2></div><p>As in the grid-world demo, Q-values are learned from transitions. Unlike grid world, the investor cannot run truly independent experiments on past markets.</p></div><div class="finance-discussion-grid"><article><h3>Why two signals?</h3><p>The second horizon creates more possible market states: 12 instead of 6. It can capture signal disagreements, but increases sparsity given only 64 distinct training decisions.</p></article><article><h3>Why account for trading costs?</h3><p>Today’s target weight affects the cost of tomorrow’s adjustment. This creates a sequential decision problem, rather than just predicting next week’s return.</p></article><article><h3>Why benchmark classical alternatives?</h3><p>RL must be compared with transparent decision rules or suitable dynamic optimization baselines before we can say its added complexity is useful.</p></article><article><h3>Why not jump to PPO?</h3><p>With 105 weekly price points, a neural policy is harder to audit and potentially easier to overfit. The notebook demonstrates learning mechanics, not production-ready portfolio management.</p></article></div><p class="finance-sources"><strong>Data:</strong> Plotly demonstration weekly normalized stock prices (AAPL, 2018–2019; dividend adjustment unverified). <strong>Motivation:</strong> Bernd Scherer (2020), <em>Maschinelles Lernen im Asset Management</em>, <em>Absolut|report</em>, pp. 46–51. These sources do not establish RL outperformance. See the <a href="data:application/x-ipynb+json;base64,ewogImNlbGxzIjogWwogIHsKICAgImNlbGxfdHlwZSI6ICJtYXJrZG93biIsCiAgICJpZCI6ICJlZDEwZmE4MiIsCiAgICJtZXRhZGF0YSI6IHt9LAogICAic291cmNlIjogWwogICAgIiMgRHluYW1pYyBwb3J0Zm9saW8gYWxsb2NhdGlvbiB3aXRoIHRhYnVsYXIgUS1sZWFybmluZyBcdTIwMTQgUHl0aG9uIGVuZ2luZSBwYXJpdHkgZWRpdGlvblxuIiwKICAgICJcbiIsCiAgICAiVGhpcyBub3RlYm9vayBpbXBvcnRzICoqdGhlIHNhbWUgYGFzc2V0X2FnZW50LnB5YCBpbXBsZW1lbnRhdGlvbiBleGVjdXRlZCBpbiB0aGUgd2Vic2l0ZSB0aHJvdWdoIFB5b2RpZGUqKi4gSXQgdXNlcyB0aGUgaWRlbnRpY2FsIGRhdGEsIGRlZmF1bHQgcGFyYW1ldGVycywgc2VlZGVkIGdlbmVyYXRvciwgdHJhaW5pbmcgdHJhbnNpdGlvbnMsIHJld2FyZCwgUS10YWJsZSwgYW5kIGV2YWx1YXRpb24gcm91dGluZXMuXG4iLAogICAgIlxuIiwKICAgICJSdW4gZnJvbSB0aGUgcmVwb3NpdG9yeSByb290IG9yIHRoZSBgbm90ZWJvb2tzL2AgZm9sZGVyLiBUaGUgcmVwZWF0ZWQgMjAxOFx1MjAxMzE5IGhpc3RvcmljYWwgd2Vla3MgYXJlIGFuIGluc3RydWN0aW9uYWwgZXhhbXBsZSwgbm90IGluZGVwZW5kZW50IHRyYWluaW5nIGVwaXNvZGVzLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImI0OThjOWFkIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgMS4gU3BlY2lmeSB0aGUgTURQLCBiZWZvcmUgd3JpdGluZyBjb2RlXG4iLAogICAgIlxuIiwKICAgICJ8IE1EUCBjb21wb25lbnQgfCBUaGlzIGV4YW1wbGUgfFxuIiwKICAgICJ8LS0tfC0tLXxcbiIsCiAgICAifCBTdGF0ZSB8IFNpZ24gb2YgcGFzdCAqKjQtd2VlayBtb21lbnR1bSoqICh1cC9kb3duKTsgc2lnbiBvZiBwYXN0ICoqMTItd2VlayBtb21lbnR1bSoqICh1cC9kb3duKTsgKipwcmV2aW91cyB0YXJnZXQgd2VpZ2h0KiogKDAlLCA1MCUsIDEwMCUpIHxcbiIsCiAgICAifCBBY3Rpb24gfCBOZXcgd2Vla2x5IHRhcmdldCB3ZWlnaHQgaW4gQXBwbGU6IDAlLCA1MCUsIDEwMCU7IHJlbWFpbmRlciBoZWxkIGFzIG5vbi1pbnRlcmVzdC1iZWFyaW5nIGNhc2ggfFxuIiwKICAgICJ8IFRyYW5zaXRpb24gfCBIaXN0b3JpY2FsIG5leHQtd2VlayBBcHBsZSByZXR1cm4gKGV4b2dlbm91cyB0byBhIHByaWNlLXRha2luZyBpbnZlc3RvciksIGFuZCBjaGFuZ2UgaW4gcHJldmlvdXMgdGFyZ2V0IHdlaWdodCB8XG4iLAogICAgInwgUmV3YXJkIHwgV2Vla2x5IG5ldCByZXR1cm4gKiptaW51cyBhbiBvcHRpb25hbCBkb3duc2lkZSBwZW5hbHR5KiogKGRlZmluZWQgYmVsb3cpIHxcbiIsCiAgICAifCBQb2xpY3kgfCBPbmUgYWxsb2NhdGlvbiBmb3IgZWFjaCBvZiB0aGUgMTIgb2JzZXJ2YWJsZSBzdGF0ZXMgfFxuIiwKICAgICJ8IExlYXJuaW5nIHwgVGFidWxhciBRLWxlYXJuaW5nIHdpdGggXHUwM2I1LWdyZWVkeSBleHBsb3JhdGlvbjsgQmVsbG1hbiBzYW1wbGUgdXBkYXRlcyB8XG4iLAogICAgIlxuIiwKICAgICJUaGUgc3RhdGUgaGFzICoqMiBcdTAwZDcgMiBcdTAwZDcgMyA9IDEyIGNvbWJpbmF0aW9ucyoqLCBhbmQgMyBhY3Rpb25zLCBnaXZpbmcgKiozNiBRLXZhbHVlcyoqLiBUaGlzIGlzIGxhcmdlciB0aGFuIHRoZSBvcmlnaW5hbCBvbmUtc2lnbmFsLCBzaXgtc3RhdGUgbm90ZWJvb2ssIGJ1dCByZW1haW5zIGludGVycHJldGFibGUuXG4iLAogICAgIlxuIiwKICAgICJUaGUgcmV3YXJkIGluICoqZGVjaW1hbCByZXR1cm4gdW5pdHMqKiBpc1xuIiwKICAgICJcbiIsCiAgICAiXFxbcl97dCsxfT0gd190IFJfe3QrMX0tY1xcbHZlcnQgd190LXdfe3QtMX1cXHJ2ZXJ0LVxcbGFtYmRhXFxtYXgoLXdfdFJfe3QrMX0sMCkuXFxdXG4iLAogICAgIlxuIiwKICAgICJIZXJlLCBcXChjXFwpIGlzIHRoZSBwcm9wb3J0aW9uYWwgY29zdCBvZiBjaGFuZ2luZyB0aGUgdGFyZ2V0IHdlaWdodCBhbmQgXFwoXFxsYW1iZGFcXCkgaXMgYW4gKmlsbHVzdHJhdGl2ZSogZG93bnNpZGUgcGVuYWx0eS4gVGhlIGRvd25zaWRlIHBlbmFsdHkgY2hhbmdlcyB0aGUgUkwgb2JqZWN0aXZlOyBpdCBpcyAqKm5vdCoqIGEgdHJhZGluZyBjb3N0LCBhbmQgaXMgbmV2ZXIgZGVkdWN0ZWQgd2hlbiByZXBvcnRpbmcgcmVhbGl6ZWQgcG9ydGZvbGlvIHdlYWx0aC4gVGhlIGV2YWx1YXRpb24gcmVwb3J0cyBhY3R1YWwgbmV0IHJldHVybnMgc2VwYXJhdGVseS5cbiIsCiAgICAiXG4iLAogICAgIlxcW1EocyxhKVxcbGVmdGFycm93IFEocyxhKStcXGFscGhhXFxiaWdbcitcXGdhbW1hXFxtYXhfe2EnfVEocycsYScpLVEocyxhKVxcYmlnXS5cXF1cbiIsCiAgICAiXG4iLAogICAgIlRoZSBmaW5hbmNpYWwgc3RhdGUgaXMgb25seSBhbiAqKmFwcHJveGltYXRlKiogTWFya292IGRlc2NyaXB0aW9uOiBwYXN0IHR3byBtb21lbnR1bSBzaWducyBkbyBub3QgZnVsbHkgY2hhcmFjdGVyaXplIG1hcmtldCBkeW5hbWljcy4gVGhpcyBpcyBhbiBlZHVjYXRpb25hbCBhYnN0cmFjdGlvbiwgbm90IGEgdmFsaWRhdGVkIGVjb25vbWljIG1vZGVsLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjRmZmMzYTkyIiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjIxODQwOVoiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjIxODI3N1oiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ1NzA0NVoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNDU2NDQ3WiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICJmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGhcbiIsCiAgICAiaW1wb3J0IHN5cywgbnVtcHkgYXMgbnAsIHBhbmRhcyBhcyBwZCwgbWF0cGxvdGxpYi5weXBsb3QgYXMgcGx0XG4iLAogICAgInJvb3QgPSBuZXh0KChwIGZvciBwIGluIFtQYXRoLmN3ZCgpLCBQYXRoLmN3ZCgpLnBhcmVudCwgUGF0aC5jd2QoKS5wYXJlbnQucGFyZW50XSBpZiAocCAvIFwiYXNzZXRfYWdlbnQucHlcIikuZXhpc3RzKCkpLCBOb25lKVxuIiwKICAgICJhc3NlcnQgcm9vdCBpcyBub3QgTm9uZSwgXCJLZWVwIGFzc2V0X2FnZW50LnB5IG5leHQgdG8gdGhlIHNpdGUsIG9yIHJ1biBmcm9tIHRoZSByZXBvc2l0b3J5IHJvb3RcIlxuIiwKICAgICJzeXMucGF0aC5pbnNlcnQoMCxzdHIocm9vdCkpXG4iLAogICAgImZyb20gYXNzZXRfYWdlbnQgaW1wb3J0IFBvcnRmb2xpb0FnZW50LCBERUZBVUxUUywgZ3JlZWR5XG4iLAogICAgImRmID0gcGQucmVhZF9jc3Yocm9vdCAvIFwiZGF0YS9oaXN0b3JpY2FsX25vcm1hbGl6ZWRfd2Vla2x5X3N0b2Nrc18yMDE4XzIwMTkuY3N2XCIscGFyc2VfZGF0ZXM9W1wiZGF0ZVwiXSlcbiIsCiAgICAicHJpY2VzID0gZGZbXCJBQVBMXCJdLnRvX251bXB5KGR0eXBlPWZsb2F0KS5yb3VuZCg4KVxuIiwKICAgICJkYXRlcyA9IGRmW1wiZGF0ZVwiXS5kdC5zdHJmdGltZShcIiVZLSVtLSVkXCIpLnRvbGlzdCgpXG4iLAogICAgInByaW50KGZcIkRhdGFzZXQ6IHtsZW4ocHJpY2VzKX0gb2JzZXJ2YXRpb25zLCB7ZGF0ZXNbMF19IHRocm91Z2gge2RhdGVzWy0xXX1cIilcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImVkMzI1NmY5IiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgMi4gQ3JlYXRlIHBvaW50LWluLXRpbWUgc2lnbmFscyBhbmQgY2hyb25vbG9naWNhbCB0cmFpbi90ZXN0IHNwbGl0XG4iLAogICAgIlxuIiwKICAgICJBdCBkZWNpc2lvbiB0aW1lIFxcKHRcXCksIHRoZSBzdGF0ZSB1c2VzIG9ubHkgcHJpY2VzICoqdXAgdG8gYW5kIGluY2x1ZGluZyoqIFxcKHRcXCkuIFRoZSBhZ2VudCB0aGVuIHRha2VzIGFuIGFjdGlvbiwgZWFybnMgdGhlIHJldHVybiBmcm9tIFxcKHRcXCkgdG8gXFwodCsxXFwpLCBhbmQgb2JzZXJ2ZXMgdGhlIG5leHQgc3RhdGUuICoqTm8gcmFuZG9tIHRyYWluL3Rlc3Qgc2h1ZmZsaW5nKiouXG4iLAogICAgIlxuIiwKICAgICJUcmFpbmluZyBlbmRzIGF0IHRoZSBmaXJzdCBldmFsdWF0aW9uIGRhdGU6IHRoYXQgcHJpY2UgaXMgb2JzZXJ2ZWQgYXQgdGhlIGJvdW5kYXJ5LCBidXQgKm5vIHJldHVybiBhZnRlciB0aGF0IGJvdW5kYXJ5KiBpcyB1c2VkIGluIHRyYWluaW5nLiBFdmFsdWF0ZWQgcmV3YXJkcyBzdGFydCB3aXRoIHRoZSBuZXh0LCBnZW51aW5lbHkgdW5zZWVuIHJldHVybi4iCiAgIF0KICB9LAogIHsKICAgImNlbGxfdHlwZSI6ICJjb2RlIiwKICAgImV4ZWN1dGlvbl9jb3VudCI6IG51bGwsCiAgICJpZCI6ICJkZmVlODI2NSIsCiAgICJtZXRhZGF0YSI6IHsKICAgICJleGVjdXRpb24iOiB7CiAgICAgImlvcHViLmV4ZWN1dGVfaW5wdXQiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NTgyNjNaIiwKICAgICAiaW9wdWIuc3RhdHVzLmJ1c3kiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NTgxMDBaIiwKICAgICAiaW9wdWIuc3RhdHVzLmlkbGUiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC40NjI2MDNaIiwKICAgICAic2hlbGwuZXhlY3V0ZV9yZXBseSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2MjA4NVoiCiAgICB9CiAgIH0sCiAgICJvdXRwdXRzIjogW10sCiAgICJzb3VyY2UiOiBbCiAgICAiZW5naW5lPVBvcnRmb2xpb0FnZW50KHByaWNlcyxkYXRlcywqKkRFRkFVTFRTKVxuIiwKICAgICJ0cmFpbl90LHRlc3RfdD1lbmdpbmUudHJhaW5fdCxlbmdpbmUudGVzdF90XG4iLAogICAgInNob3J0X3VwLGxvbmdfdXA9ZW5naW5lLnVwNCxlbmdpbmUudXAxMlxuIiwKICAgICJXRUlHSFRTPW5wLmFycmF5KFswLDAuNSwxLjBdKVxuIiwKICAgICJkZWYgc3RhdGVfaWQodCxwcmV2aW91cyk6IHJldHVybiBlbmdpbmUuc3RhdGVfaWQodCxwcmV2aW91cylcbiIsCiAgICAicHJpbnQoZlwiVHJhaW5pbmcgd2Vla3Mge2xlbih0cmFpbl90KX07IGV2YWx1YXRpb24gd2Vla3Mge2xlbih0ZXN0X3QpfTsgMTIgc3RhdGVzIC8gMzYgYWN0aW9uIHZhbHVlc1wiKVxuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAiaWQiOiAiNjc2OWQzN2IiLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyAzLiBUcmFpbiB0aGUgUS1sZWFybmluZyBwb2xpY3lcbiIsCiAgICAiXG4iLAogICAgIldlIGN5Y2xlIG92ZXIgdGhlICoqc2FtZSoqIGhpc3RvcmljYWwgdHJhaW5pbmcgZGF0ZXMgZm9yIG11bHRpcGxlIGVwaXNvZGVzLiBUaGUgUHl0aG9uIGFuZCBicm93c2VyIHZlcnNpb25zIHVzZSB0aGUgc2FtZSBzZWVkZWQgcHNldWRvcmFuZG9tIGdlbmVyYXRvciBmb3IgY29uc2lzdGVudCBleGFtcGxlcy4gUmVwbGF5cyBwcm92aWRlIGFkZGl0aW9uYWwgb3B0aW1pemF0aW9uIHBhc3NlcywgKipub3QqKiBuZXcgaW5kZXBlbmRlbnQgb2JzZXJ2YXRpb25zLiBBbiBcdTAzYjUtZ3JlZWR5IHBvbGljeSBleHBsb3JlczsgdGhlIGV2YWx1YXRpb24gcG9saWN5IGlzIGZyb3plbiBhbmQgZ3JlZWR5LiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjk3Mjk4Mzg2IiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2Mzc3M1oiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4LjQ2MzQ5MVoiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc1ODY1OFoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzU3OTczWiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICIjIEVYQUNUIHNhbWUgZnVuY3Rpb24gY2FsbHMgYW5kIHBhcmFtZXRlciB2YWx1ZXMgYXMgdGhlIHN0YXRpYyB3ZWIgZGVtb1xuIiwKICAgICJlbmdpbmUuc3RlcF9tYW55KGxlbihlbmdpbmUudHJhaW5fdCkgKiBlbmdpbmUuYnVkZ2V0KVxuIiwKICAgICJRID0gbnAuYXNhcnJheShlbmdpbmUucSlcbiIsCiAgICAidHJhaW5fdmlzaXRzPW5wLmFzYXJyYXkoZW5naW5lLnZpc2l0cylcbiIsCiAgICAicHJpbnQoZlwiVHJhaW5pbmcgcGFzc2VzOiB7ZW5naW5lLnBhc3Nlc30sIGxhc3QgZ3JlZWR5IHRyYWluaW5nIHJld2FyZCB7ZW5naW5lLmdyZWVkeV9oaXN0b3J5Wy0xXTouNGZ9XCIpXG4iLAogICAgInByaW50KFwiUHl0aG9uIFEtdGFibGUgc2hhcGU6XCIsUS5zaGFwZSlcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogIjZhOGEzOWNiIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgNC4gU2hvdyB3aGF0IHRoZSBhZ2VudCBsZWFybmVkXG4iLAogICAgIlxuIiwKICAgICJBIFEtdGFibGUgaXMgaW50ZXJwcmV0YWJsZTogZm9yIGVhY2ggY29tYmluYXRpb24gb2Ygc2hvcnQgbW9tZW50dW0sIGxvbmcgbW9tZW50dW0gYW5kIHByZXZpb3VzIGFsbG9jYXRpb24sIGlkZW50aWZ5IHRoZSB0YXJnZXQgd2VpZ2h0IHdpdGggdGhlIGhpZ2hlc3QgZXN0aW1hdGVkIGFjdGlvbiB2YWx1ZS4gKipVbnZpc2l0ZWQgc3RhdGVzIHNob3VsZCBub3QgYmUgaW50ZXJwcmV0ZWQgYXMgbGVhcm5lZCBleHBlcnRpc2UuKioiCiAgIF0KICB9LAogIHsKICAgImNlbGxfdHlwZSI6ICJjb2RlIiwKICAgImV4ZWN1dGlvbl9jb3VudCI6IG51bGwsCiAgICJpZCI6ICJjNDJmYjdjMyIsCiAgICJtZXRhZGF0YSI6IHsKICAgICJleGVjdXRpb24iOiB7CiAgICAgImlvcHViLmV4ZWN1dGVfaW5wdXQiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NTk4MDBaIiwKICAgICAiaW9wdWIuc3RhdHVzLmJ1c3kiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NTk2NzNaIiwKICAgICAiaW9wdWIuc3RhdHVzLmlkbGUiOiAiMjAyNi0xMS0yMVQxNjo1MTowOC43NjYxNTVaIiwKICAgICAic2hlbGwuZXhlY3V0ZV9yZXBseSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NTYxNFoiCiAgICB9CiAgIH0sCiAgICJvdXRwdXRzIjogW10sCiAgICJzb3VyY2UiOiBbCiAgICAicm93cz1bXVxuIiwKICAgICJmb3IgbTQgaW4gW0ZhbHNlLFRydWVdOlxuIiwKICAgICIgICAgZm9yIG0xMiBpbiBbRmFsc2UsVHJ1ZV06XG4iLAogICAgIiAgICAgICAgZm9yIHByZXZpb3VzIGluIHJhbmdlKDMpOlxuIiwKICAgICIgICAgICAgICAgICBzPSgyKmludChtNCkraW50KG0xMikpKjMrcHJldmlvdXNcbiIsCiAgICAiICAgICAgICAgICAgcm93cy5hcHBlbmQoe1wiNHdcIjpcIlVwXCIgaWYgbTQgZWxzZSBcIkRvd25cIixcIjEyd1wiOlwiVXBcIiBpZiBtMTIgZWxzZSBcIkRvd25cIixcInByZXZpb3VzXCI6V0VJR0hUU1twcmV2aW91c10sXCJRKDAlKVwiOlFbcywwXSxcIlEoNTAlKVwiOlFbcywxXSxcIlEoMTAwJSlcIjpRW3MsMl0sXCJjaG9zZW5cIjpXRUlHSFRTW2dyZWVkeShRW3NdKV0sXCJ2aXNpdHNcIjp0cmFpbl92aXNpdHNbc119KVxuIiwKICAgICJkaXNwbGF5KHBkLkRhdGFGcmFtZShyb3dzKS5yb3VuZCg0KSlcbiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogIm1hcmtkb3duIiwKICAgImlkIjogImM3MjZjYjBjIiwKICAgIm1ldGFkYXRhIjoge30sCiAgICJzb3VyY2UiOiBbCiAgICAiIyMgNS4gRnJlZXplIHRoZSBwb2xpY3kgYW5kIGNvbXBhcmUgYWdhaW5zdCBob25lc3QgYmVuY2htYXJrc1xuIiwKICAgICJcbiIsCiAgICAiQWxsIHN0cmF0ZWdpZXMgc3RhcnQgdGhlIGV2YWx1YXRpb24gcGVyaW9kIGZyb20gY2FzaCBhbmQgZmFjZSB0aGUgKipzYW1lKiogdHJhbnNhY3Rpb24gY29zdC4gQmVuY2htYXJrcyBpbmNsdWRlIDEwMCUgQXBwbGUsIDUwJSBBcHBsZSByZWJhbGFuY2VkIHdlZWtseSwgMTAwJSBjYXNoLCBhbmQgYSBzaW1wbGUgdHdvLWhvcml6b24gbW9tZW50dW0gcnVsZS5cbiIsCiAgICAiXG4iLAogICAgIioqRXZhbHVhdGlvbiBuZXQgcmV0dXJuKiogc3VidHJhY3RzICphY3R1YWwgbW9kZWxlZCB0cmFkaW5nIGNvc3RzKiwgKipub3QqKiB0aGUgdHJhaW5pbmctb25seSBkb3duc2lkZSBwZW5hbHR5LiBBbm51YWxpemF0aW9uICg1MiB3ZWVrcykgb24gdGhpcyB2ZXJ5IHNob3J0IHRlc3Qgd2luZG93IGlzIHVuc3RhYmxlIGFuZCBzaG91bGQgbm90IGJlIHVzZWQgZm9yIGludmVzdG1lbnQgY2xhaW1zLiIKICAgXQogIH0sCiAgewogICAiY2VsbF90eXBlIjogImNvZGUiLAogICAiZXhlY3V0aW9uX2NvdW50IjogbnVsbCwKICAgImlkIjogIjI0Yzk2ZjU1IiwKICAgIm1ldGFkYXRhIjogewogICAgImV4ZWN1dGlvbiI6IHsKICAgICAiaW9wdWIuZXhlY3V0ZV9pbnB1dCI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NzE5NVoiLAogICAgICJpb3B1Yi5zdGF0dXMuYnVzeSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc2NzA5MVoiLAogICAgICJpb3B1Yi5zdGF0dXMuaWRsZSI6ICIyMDI2LTExLTIxVDE2OjUxOjA4Ljc3NDI0NFoiLAogICAgICJzaGVsbC5leGVjdXRlX3JlcGx5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzczODQyWiIKICAgIH0KICAgfSwKICAgIm91dHB1dHMiOiBbXSwKICAgInNvdXJjZSI6IFsKICAgICJzdHJhdGVnaWVzID0gZW5naW5lLmV2YWx1YXRlKClcbiIsCiAgICAic3VtbWFyeSA9IHBkLkRhdGFGcmFtZShbe1wiU3RyYXRlZ3lcIjp2W1wibmFtZVwiXSxcIk5ldCB0b3RhbCByZXR1cm5cIjp2W1widG90YWxSZXR1cm5cIl0sXCJNYXggZHJhd2Rvd25cIjp2W1wibWF4RHJhd2Rvd25cIl0sXCJUb3RhbCB0dXJub3ZlclwiOnZbXCJ0dXJub3ZlclwiXSxcIkFsbG9jYXRpb24gY2hhbmdlc1wiOnZbXCJjaGFuZ2VzXCJdfSBmb3IgdiBpbiBzdHJhdGVnaWVzXSlcbiIsCiAgICAiZGlzcGxheShzdW1tYXJ5LnJvdW5kKDQpKVxuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAiY29kZSIsCiAgICJleGVjdXRpb25fY291bnQiOiBudWxsLAogICAiaWQiOiAiNDIzOGY4M2EiLAogICAibWV0YWRhdGEiOiB7CiAgICAiZXhlY3V0aW9uIjogewogICAgICJpb3B1Yi5leGVjdXRlX2lucHV0IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzc1MDc0WiIsCiAgICAgImlvcHViLnN0YXR1cy5idXN5IjogIjIwMjYtMTEtMjFUMTY6NTE6MDguNzc0OTgzWiIsCiAgICAgImlvcHViLnN0YXR1cy5pZGxlIjogIjIwMjYtMTEtMjFUMTY6NTE6MDkuMDM1NzI4WiIsCiAgICAgInNoZWxsLmV4ZWN1dGVfcmVwbHkiOiAiMjAyNi0xMS0yMVQxNjo1MTowOS4wMzUxMDRaIgogICAgfQogICB9LAogICAib3V0cHV0cyI6IFtdLAogICAic291cmNlIjogWwogICAgImZpZywgYXggPSBwbHQuc3VicGxvdHMoZmlnc2l6ZT0oMTAsNSkpXG4iLAogICAgImZvciByZXN1bHQgaW4gc3RyYXRlZ2llczpcbiIsCiAgICAiICAgIGF4LnBsb3QobnAuYXJhbmdlKGxlbihyZXN1bHRbJ3dlYWx0aCddKSksIHJlc3VsdFsnd2VhbHRoJ10sIGxhYmVsPXJlc3VsdFsnbmFtZSddKVxuIiwKICAgICJheC5zZXQodGl0bGU9J0lsbHVzdHJhdGl2ZSBldmFsdWF0aW9uLXBlcmlvZCBwb3J0Zm9saW8gd2VhbHRoIFx1MDBiNyBzdGFydHMgYXQgMS4wMCcsXG4iLAogICAgIiAgICAgICB4bGFiZWw9J0V2YWx1YXRpb24gd2Vla3MgZWxhcHNlZCcsIHlsYWJlbD0nTmV0IHdlYWx0aCBpbmRleCcpXG4iLAogICAgImF4LmdyaWQoYWxwaGE9LjIpOyBheC5sZWdlbmQoKTsgcGx0LnRpZ2h0X2xheW91dCgpOyBwbHQuc2hvdygpXG4iLAogICAgIlxuIiwKICAgICJmaWcsIGF4ID0gcGx0LnN1YnBsb3RzKGZpZ3NpemU9KDEwLDMpKVxuIiwKICAgICJheC5zdGVwKHRlc3RfdCwgW2VudHJ5Wyd3ZWlnaHQnXSBmb3IgZW50cnkgaW4gc3RyYXRlZ2llc1swXVsnb3V0Y29tZSddXSwgd2hlcmU9J3Bvc3QnKVxuIiwKICAgICJheC5zZXQodGl0bGU9J1JMIGFnZW50IGFsbG9jYXRpb24gaW4gdGVzdCBwZXJpb2QnLCB4bGFiZWw9J0RlY2lzaW9uIHRpbWUgKHJvdyBpbmRleCknLFxuIiwKICAgICIgICAgICAgeWxhYmVsPSdBcHBsZSB3ZWlnaHQnLCB5bGltPSgtLjA1LDEuMDUpKVxuIiwKICAgICJheC5ncmlkKGFscGhhPS4yKTsgcGx0LnRpZ2h0X2xheW91dCgpOyBwbHQuc2hvdygpIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAiaWQiOiAiZGJjZjQwOTAiLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyA2LiBXb3Jrc2hvcCBkaXNjdXNzaW9uICYgbGltaXRhdGlvbnNcbiIsCiAgICAiXG4iLAogICAgIjEuICoqV2hhdCBpcyBsZWFybmVkPyoqIEluc3BlY3QgUS12YWx1ZXMgYW5kIHN0YXRlIHZpc2l0cy4gRG9lcyB0aGUgbGVhcm5lZCBwb2xpY3kgY2hhbmdlIHdpdGggdGhlIHR3byBzaWduYWxzLCBvciBtb3N0bHkgY2hvb3NlIG9uZSBhbGxvY2F0aW9uP1xuIiwKICAgICIyLiAqKkRvIHRoZSBleHRyYSBmZWF0dXJlcyBoZWxwPyoqIE1vcmUgc3RhdGVzIGNhbiBpbXByb3ZlIGV4cHJlc3NpdmVuZXNzIGJ1dCBtYWtlIHN0YXRlLWFjdGlvbiBjb3ZlcmFnZSB3b3JzZSB3aGVuIG9ubHkgfjYwIHRyYWluaW5nIGRlY2lzaW9ucyBhcmUgYXZhaWxhYmxlLlxuIiwKICAgICIzLiAqKldoYXQgZG8gY29zdHMgY2hhbmdlPyoqIFRyeSAwLCAxMCwgYW5kIDUwIGJwcyBhbmQgY29tcGFyZSB0dXJub3ZlciBhbmQgbmV0IG91dGNvbWVzLiBSZS10cmFpbiBmb3IgZWFjaCBjb3N0OyBjaGFuZ2luZyBvbmx5IGV2YWx1YXRpb24gY29zdCB3b3VsZCBtaXNtYXRjaCB0aGUgb2JqZWN0aXZlLlxuIiwKICAgICI0LiAqKldoYXQgZG9lcyBkb3duc2lkZSBwZW5hbHR5IG1lYW4/KiogQ2hhbmdlIGBET1dOU0lERV9QRU5BTFRZYCBhbmQgcmUtcnVuLiBJdCBpcyBhICp1dGlsaXR5IHByZWZlcmVuY2UqLCBub3QgYSBjYXNoIGRlZHVjdGlvbjsgYmV0dGVyIHRyYWluaW5nIHJld2FyZCBkb2VzIG5vdCBndWFyYW50ZWUgaGlnaGVyIHJlYWxpemVkIHJldHVybi5cbiIsCiAgICAiNS4gKipXaHkgbm90IFBQTyB5ZXQ/KiogMTA1IHdlZWtseSBvYnNlcnZhdGlvbnMgZG8gbm90IGp1c3RpZnkgYSBoaWdoLWNhcGFjaXR5IG5ldXJhbCBwb2xpY3ksIGFuZCB0aGUgdGFidWxhciBhZ2VudCBpcyBlYXN5IHRvIGF1ZGl0LlxuIiwKICAgICI2LiAqKldoYXQgc2hvdWxkIGEgc2VyaW91cyBmb2xsb3ctdXAgYWRkPyoqIExvbmdlciBwb2ludC1pbi10aW1lIHRvdGFsLXJldHVybiBkYXRhLCBtdWx0aXBsZSBhc3NldHMsIGEgY3JlZGlibGUgc2ltdWxhdG9yLCBjYXNoIGludGVyZXN0LCBwb3J0Zm9saW8gY29uc3RyYWludHMsIHByb3BlciBtYXJrLXRvLW1hcmtldCB3ZWlnaHRzLCB3YWxrLWZvcndhcmQgdmFsaWRhdGlvbiwgcm9idXN0IG5vbi1STCBvcHRpbWl6ZXJzLCByaXNrIG1ldHJpY3MsIGFuZCB0ZXN0cyBhY3Jvc3MgaW5kZXBlbmRlbnQgbWFya2V0IHJlZ2ltZXMuXG4iLAogICAgIlxuIiwKICAgICIqKk1ldGhvZG9sb2dpY2FsIHdhcm5pbmc6KiogVGhlIG9ic2VydmVkIHJldHVybiBzZXF1ZW5jZSBpcyBub3QgYWZmZWN0ZWQgYnkgb3VyIHRyYWRlcywgdGhlIHN0YXRlIGlzIG5vdCByaWdvcm91c2x5IE1hcmtvdiwgYW5kIG1vZGVsIHNlbGVjdGlvbiBvbiB0aGUgdGVzdCBwZXJpb2Qgd291bGQgZGVzdHJveSB0aGUgaG9sZG91dC4gUmVwZWF0ZWQgdHJhaW5pbmcgb3ZlciBhIHNob3J0IHN0YXRpYyBoaXN0b3J5IGNhbiBlbmNvdXJhZ2UgbWVtb3JpemF0aW9uLiBUaGlzIGlzICpub3QgYSBkZW1vbnN0cmF0aW9uIG9mIGVjb25vbWljIHN1cGVyaW9yaXR5IG92ZXIgY2xhc3NpY2FsIHN0b2NoYXN0aWMgY29udHJvbCouXG4iLAogICAgIlxuIiwKICAgICIqKlNvdXJjZXM6KiogVGhlIHByaWNlIENTViBpcyBkZXJpdmVkIGZyb20gUGxvdGx5J3MgcHVibGljIHNhbXBsZSBgcGxvdGx5LmV4cHJlc3MuZGF0YS5zdG9ja3MoKWAgKHdlZWtseSBub3JtYWxpemVkIDIwMThcdTIwMTMyMDE5KS4gU2NoZXJlciAoMjAyMCksIFx1MjAxY01hc2NoaW5lbGxlcyBMZXJuZW4gaW0gQXNzZXQgTWFuYWdlbWVudCxcdTIwMWQgKkFic29sdXR8cmVwb3J0KiwgcHAuIDQ2XHUyMDEzNTEsIG1vdGl2YXRlcyBleGFtaW5pbmcgZHluYW1pYyByZWJhbGFuY2luZyB3aXRoIHNpZ25hbHMgYW5kIGNvc3RzIGJ1dCBkb2VzIG5vdCBlc3RhYmxpc2ggUkwgb3V0cGVyZm9ybWFuY2UuIgogICBdCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAibWFya2Rvd24iLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICIjIyA3LiBQYXJhbWV0ZXIgc2Vuc2l0aXZpdHkgKHJlYWwgbW9kZWwgcmVydW5zKVxuIiwKICAgICJcbiIsCiAgICAiRWFjaCBjb25maWd1cmF0aW9uIGNyZWF0ZXMgYSAqKm5ldyBQeXRob24gYWdlbnQqKiB3aXRoIHplcm8taW5pdGlhbGl6ZWQgUS12YWx1ZXMsIHRyYWlucyBvbiB0aGUgc2FtZSA2NCBoaXN0b3JpY2FsIHdlZWtzIHdpdGggdGhlIHNhbWUgc2VlZCwgYW5kIGV2YWx1YXRlcyB0aGUgZnJvemVuIHBvbGljeSBvbiB0aGUgc2FtZSAyOCBsYXRlciB3ZWVrcy4gUmV1c2luZyB0aGlzIGV2YWx1YXRpb24gc2V0IGZvciBtb2RlbCBzZWxlY3Rpb24gd291bGQgY29tcHJvbWlzZSBpdHMgaG9sZG91dCBzdGF0dXMuIFRoZXNlIGNvbXBhcmlzb25zIGlsbHVzdHJhdGUgc2Vuc2l0aXZpdHksIG5vdCBzdGF0aXN0aWNhbCBnZW5lcmFsaXphdGlvbi5cbiIKICAgXSwKICAgImlkIjogImFnZW50Y2VsbC0wMTMiCiAgfSwKICB7CiAgICJjZWxsX3R5cGUiOiAiY29kZSIsCiAgICJleGVjdXRpb25fY291bnQiOiBudWxsLAogICAib3V0cHV0cyI6IFtdLAogICAibWV0YWRhdGEiOiB7fSwKICAgInNvdXJjZSI6IFsKICAgICJleHBlcmltZW50cz17XG4iLAogICAgIiAgICBcIkJhc2VsaW5lXCI6e30sXG4iLAogICAgIiAgICBcIk5vIGNvc3RzIC8gbm8gcGVuYWx0eVwiOntcImNvc3RfYnBzXCI6MCxcInJpc2tcIjowfSxcbiIsCiAgICAiICAgIFwiSGlnaCBjb3N0IC8gcGVuYWx0eVwiOntcImNvc3RfYnBzXCI6NTAsXCJyaXNrXCI6Mn0sXG4iLAogICAgIiAgICBcIkxvdyBkaXNjb3VudFwiOntcImdhbW1hXCI6MC4xfVxuIiwKICAgICJ9XG4iLAogICAgImNvbXBhcmlzb249W11cbiIsCiAgICAiZm9yIG5hbWUsY2hhbmdlcyBpbiBleHBlcmltZW50cy5pdGVtcygpOlxuIiwKICAgICIgICAgY29uZmlnPXsqKkRFRkFVTFRTLCoqY2hhbmdlc31cbiIsCiAgICAiICAgIGFnZW50PVBvcnRmb2xpb0FnZW50KHByaWNlcyxkYXRlcywqKmNvbmZpZylcbiIsCiAgICAiICAgIGFnZW50LnN0ZXBfbWFueShsZW4oYWdlbnQudHJhaW5fdCkqYWdlbnQuYnVkZ2V0KVxuIiwKICAgICIgICAgbWV0cmljPWFnZW50LmV2YWx1YXRlKClbMF1cbiIsCiAgICAiICAgIGNvbXBhcmlzb24uYXBwZW5kKHtcIkNvbmZpZ3VyYXRpb25cIjpuYW1lLFwiTmV0IHRlc3QgcmV0dXJuXCI6bWV0cmljW1widG90YWxSZXR1cm5cIl0sXCJUZXN0IGNoYW5nZXNcIjptZXRyaWNbXCJjaGFuZ2VzXCJdLFwiRmluYWwgZ3JlZWR5IHRyYWluaW5nIHJld2FyZFwiOmFnZW50LmdyZWVkeV9oaXN0b3J5Wy0xXX0pXG4iLAogICAgImRpc3BsYXkocGQuRGF0YUZyYW1lKGNvbXBhcmlzb24pLnJvdW5kKDQpKVxuIgogICBdLAogICAiaWQiOiAiYWdlbnRjZWxsLTAxNCIKICB9CiBdLAogIm1ldGFkYXRhIjogewogICJrZXJuZWxzcGVjIjogewogICAiZGlzcGxheV9uYW1lIjogIlB5dGhvbiAzIiwKICAgImxhbmd1YWdlIjogInB5dGhvbiIsCiAgICJuYW1lIjogInB5dGhvbjMiCiAgfSwKICAibGFuZ3VhZ2VfaW5mbyI6IHsKICAgImNvZGVtaXJyb3JfbW9kZSI6IHsKICAgICJuYW1lIjogImlweXRob24iLAogICAgInZlcnNpb24iOiAzCiAgIH0sCiAgICJmaWxlX2V4dGVuc2lvbiI6ICIucHkiLAogICAibWltZXR5cGUiOiAidGV4dC94LXB5dGhvbiIsCiAgICJuYW1lIjogInB5dGhvbiIsCiAgICJuYmNvbnZlcnRfZXhwb3J0ZXIiOiAicHl0aG9uIiwKICAgInB5Z21lbnRzX2xleGVyIjogImlweXRob24zIiwKICAgInZlcnNpb24iOiAiMy4xMy41IgogIH0KIH0sCiAibmJmb3JtYXQiOiA0LAogIm5iZm9ybWF0X21pbm9yIjogNQp9">Python notebook</a> for full equations, assumptions and reproducibility. The site now runs the same actual Python module as the notebook using Pyodide; JavaScript renders the UI and animation, not the RL calculations.</p></section>
     </div>
 
-    <div class="finance-view" data-finance-panel="4" id="finance-challenge" hidden>
+    <div class="finance-view" data-finance-panel="5" id="finance-challenge" hidden>
       <div class="finance-stage" data-stage="0">
       <section class="finance-hero ch-hero">
-        <p class="eyebrow">05 · Hands-on lab · Microsoft (MSFT)</p>
+        <p class="eyebrow">Microsoft scenario</p>
         <h1>Experiment with how your <em>agent learns.</em></h1>
         <p class="finance-lead">The Apple walkthrough taught the Q-learning update. Now you control the learning process: train on Microsoft history, examine a market state's Q-values, compare two learned policies, and decide whether the improvement survives new data.</p>
         <div class="ch-mission">
@@ -189,6 +198,17 @@
       </div><div class="finance-stage" data-stage="1" hidden>
         <section class="finance-section"><div class="section-heading"><div><p class="eyebrow">Portfolio MDP</p><h2>One stock, cash, and 12 states</h2></div><p>Like Apple, the agent chooses 0%, 50%, or 100% stock. The state combines two momentum signals with the previous allocation. Microsoft adds distinct training, validation, and final periods.</p></div></section>
       </div><div class="finance-stage" data-stage="2" hidden>
+      <section class="finance-section"><div class="finance-control-actions"><button type="button" id="ch-guided-step" class="button primary">Guided step · one week</button><span>Inspect a decision before running many passes.</span></div><div class="finance-guide" id="ch-guide" hidden><strong>One observed transition</strong><p id="ch-last-decision">No decisions yet. Press Step 1 week to watch the Bellman update.</p></div></section>
+      <section class="finance-section ch-section ch-inspect">
+        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Follow the Q-values—not just the reward.</h2><p>Choose a market state. The plot shows the three Q-values for this exact state after every completed training pass. The policy table shows which allocation each state currently prefers.</p></header>
+        <div class="ch-inspection-top"><label for="ch-state"><strong>Inspect a state</strong><select id="ch-state" aria-label="Choose market state"></select></label><p id="ch-state-definition">Select a state to inspect short-term momentum, long-term momentum, and previous allocation.</p></div>
+        <div class="ch-visual-grid">
+          <div class="ch-live"><div class="ch-chart-head"><span><strong>Three Q-values over training</strong></span><span><i class="ch-dot ch-cash"></i>Cash <i class="ch-dot ch-half"></i>50% <i class="ch-dot ch-full"></i>100%</span></div><svg id="ch-q-chart" viewBox="0 0 780 285" role="img" aria-label="Q-value learning trajectory for selected state"><text x="390" y="145" text-anchor="middle" class="finance-empty-chart">Complete a training pass to plot Q-values</text></svg><p id="ch-state-readout" class="finance-small">Q-values start at zero, so the initial choice is a tie.</p></div>
+          <div class="ch-live"><h3 class="ch-microhead">Learned policy · all 12 states</h3><div id="ch-policy-table" class="ch-table-scroll"></div><p class="finance-small">The preferred action is the largest current Q-value. A change in that ranking is a change in the learned policy; a Q-value change alone need not change the policy.</p></div>
+        </div>
+      </section>
+
+      </div><div class="finance-stage" data-stage="3" hidden>
       <section class="finance-section ch-section ch-config" id="challenge-lab">
         <header class="ch-section-heading"><p class="eyebrow">01 · Explore</p><h2>Set the learning process. Then press Play.</h2><p>Learning rate, future-reward weighting, exploration and training passes are yours to choose. Change a setting and the agent resets, ready for a new experiment. No prediction is required.</p></header>
         <div class="ch-workspace">
@@ -216,21 +236,12 @@
             </div>
             <div class="ch-chart-head"><span>Training reward per pass <button id="ch-reward-help" class="ch-help" title="The training reward is the sum of weekly rewards in one pass, not compounded portfolio return.">?</button></span><span><i class="ch-dot ch-raw"></i>Exploring <i class="ch-dot ch-avg"></i>20-pass avg <i class="ch-dot ch-greedy"></i>Greedy on train</span></div>
             <svg id="ch-training-chart" viewBox="0 0 780 265" role="img" aria-label="Q-learning training reward curves"><text x="390" y="130" text-anchor="middle" class="finance-empty-chart">Start training to draw real reward curves</text></svg>
-            <div class="ch-state-foot"><p id="ch-last-decision">No decisions yet. Press Step 1 week to watch the Bellman update.</p><p id="ch-policy">The policy starts from tied Q-values.</p></div>
+            <div class="ch-state-foot"><p id="ch-policy">The policy starts from tied Q-values.</p></div>
           </div>
         </div>
       </section>
 
-      <section class="finance-section ch-section ch-inspect">
-        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Follow the Q-values—not just the reward.</h2><p>Choose a market state. The plot shows the three Q-values for this exact state after every completed training pass. The policy table shows which allocation each state currently prefers.</p></header>
-        <div class="ch-inspection-top"><label for="ch-state"><strong>Inspect a state</strong><select id="ch-state" aria-label="Choose market state"></select></label><p id="ch-state-definition">Select a state to inspect short-term momentum, long-term momentum, and previous allocation.</p></div>
-        <div class="ch-visual-grid">
-          <div class="ch-live"><div class="ch-chart-head"><span><strong>Three Q-values over training</strong></span><span><i class="ch-dot ch-cash"></i>Cash <i class="ch-dot ch-half"></i>50% <i class="ch-dot ch-full"></i>100%</span></div><svg id="ch-q-chart" viewBox="0 0 780 285" role="img" aria-label="Q-value learning trajectory for selected state"><text x="390" y="145" text-anchor="middle" class="finance-empty-chart">Complete a training pass to plot Q-values</text></svg><p id="ch-state-readout" class="finance-small">Q-values start at zero, so the initial choice is a tie.</p></div>
-          <div class="ch-live"><h3 class="ch-microhead">Learned policy · all 12 states</h3><div id="ch-policy-table" class="ch-table-scroll"></div><p class="finance-small">The preferred action is the largest current Q-value. A change in that ranking is a change in the learned policy; a Q-value change alone need not change the policy.</p></div>
-        </div>
-      </section>
-
-      </div><div class="finance-stage" data-stage="3" hidden>
+      </div><div class="finance-stage" data-stage="4" hidden>
       <section class="finance-section ch-section ch-validation">
         <header class="ch-section-heading"><p class="eyebrow">03 · Evaluate and compare</p><h2>Did a different learning process produce different decisions?</h2><p>Evaluate a frozen policy on 2020–2022. Save several runs, then compare two of them side by side. There is no score target or attempt limit—though every new validation attempt makes that period less independent.</p></header>
         <div class="ch-validate-actions"><button type="button" class="button primary" id="ch-validate" disabled>Save run + evaluate on validation</button><span id="ch-validation-status">Complete at least one training pass first.</span></div>
@@ -255,10 +266,10 @@
       </div>
     </div>
 
-    <div class="finance-view" data-finance-panel="5" id="finance-multi-asset" hidden>
+    <div class="finance-view" data-finance-panel="6" id="finance-multi-asset" hidden>
       <div class="finance-stage" data-stage="0">
       <section class="finance-hero ma-hero">
-        <p class="eyebrow">06 · Optional advanced challenge · equities, bonds & cash</p>
+        <p class="eyebrow">Multi-asset scenario · equities, bonds & cash</p>
         <h1>What changes when the agent must <em>diversify?</em></h1>
         <p class="finance-lead">Extend tabular Q-learning from Microsoft-versus-cash to allocation between the S&amp;P 500 ETF (SPY), a long-term Treasury bond ETF (TLT), and cash. Train a genuinely different environment with 24 states and 144 action values.</p>
         <div class="ch-mission"><div><small>MARKET SIGNALS</small><strong>4-week SPY &amp; TLT momentum</strong></div><div><small>ACTIONS</small><strong>Six allocations</strong></div><div><small>STATES</small><strong>24 states · 144 Q-values</strong></div><div><small>DATA</small><strong>Weekly 2016–2024</strong></div></div>
@@ -271,6 +282,13 @@
         <p class="ma-study-notes"><strong>Your investigation:</strong> Can a policy that has a choice of bonds and cash reduce downside exposure without giving up too much participation in recoveries? Do not assume bonds always hedge equity losses—2022 is a useful counterexample. Compare your policy to a transparent 50/50 portfolio.</p>
       </section>
       </div><div class="finance-stage" data-stage="2" hidden>
+      <section class="finance-section ma-section"><div class="finance-control-actions"><button type="button" id="ma-guided-step" class="button primary">Guided step · one week</button><span>See the chosen allocation and the resulting Q update.</span></div><div class="finance-guide" id="ma-guide" hidden><strong>One observed transition</strong><p class="finance-small" id="ma-last-decision">Step through a week to see an action and its Q-learning update.</p></div></section>
+      <section class="finance-section ma-section">
+        <header class="ch-section-heading"><p class="eyebrow">03 · Inspect the policy</p><h2>What allocation does the agent prefer?</h2><p>Select a state and watch all six Q-values evolve across completed training passes. Different market signals and previous holdings may generate different allocation choices.</p></header>
+        <div class="ma-selected"><label for="ma-state"><strong>Market state</strong></label><select id="ma-state"></select><span class="finance-small" id="ma-best">No training yet.</span></div>
+        <div class="ma-panel"><div class="ch-chart-head"><span>Actual Q-values · selected state</span><span>Six allocation choices</span></div><svg id="ma-q-chart" viewBox="0 0 780 265" aria-label="Six learned Q-values over training passes" role="img"></svg><div id="ma-action-values" class="finance-small"></div></div>
+      </section>
+      </div><div class="finance-stage" data-stage="3" hidden>
       <section class="finance-section ma-section">
         <header class="ch-section-heading"><p class="eyebrow">02 · Train a new Python agent</p><h2>Watch how diversification changes Q-learning</h2><p>The agent learns from 2016–2019 using a benchmark-relative reward, and training restarts with a fresh Q-table when you change parameters. Each pass repeats the same historical weeks. You may pause, inspect the Q-table, and run different settings freely.</p></header>
         <div class="ma-workspace"><aside class="ma-settings">
@@ -287,15 +305,10 @@
           <div class="ma-run-status"><div><small>Current reward</small><strong id="ma-reward">0.000</strong></div><div><small>Latest pass reward</small><strong id="ma-last-reward">—</strong></div><div><small>Last Q update</small><strong id="ma-q-update">—</strong></div></div>
           <div class="ch-chart-head"><span>Reward per completed training pass</span><span><i class="ch-dot ch-raw"></i>Exploring agent <i class="ch-dot ch-full"></i>Greedy training</span></div>
           <svg id="ma-reward-chart" viewBox="0 0 780 265" aria-label="Multi-asset reward versus training passes" role="img"></svg>
-          <p class="finance-small" id="ma-last-decision">Step through a week to see an action and its Q-learning update.</p>
+          
         </article></div>
       </section>
-      <section class="finance-section ma-section">
-        <header class="ch-section-heading"><p class="eyebrow">03 · Inspect the policy</p><h2>What allocation does the agent prefer?</h2><p>Select a state and watch all six Q-values evolve across completed training passes. Different market signals and previous holdings may generate different allocation choices.</p></header>
-        <div class="ma-selected"><label for="ma-state"><strong>Market state</strong></label><select id="ma-state"></select><span class="finance-small" id="ma-best">No training yet.</span></div>
-        <div class="ma-panel"><div class="ch-chart-head"><span>Actual Q-values · selected state</span><span>Six allocation choices</span></div><svg id="ma-q-chart" viewBox="0 0 780 265" aria-label="Six learned Q-values over training passes" role="img"></svg><div id="ma-action-values" class="finance-small"></div></div>
-      </section>
-      </div><div class="finance-stage" data-stage="3" hidden>
+      </div><div class="finance-stage" data-stage="4" hidden>
       <section class="finance-section ma-section">
         <header class="ch-section-heading"><p class="eyebrow">04 · Compare risk and regimes</p><h2>Did diversification help in 2020, 2021 or 2022?</h2><p>Compare the frozen agent with 100% SPY, 100% TLT, a fixed 50/50 portfolio, and cash. Returns, drawdowns and volatility are evaluated on the same observations and fixed 10 bps rebalancing-cost rule.</p></header>
         <button class="button primary" id="ma-validate" disabled>Evaluate 2020–2022</button>
@@ -1158,7 +1171,7 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   function renderUpdate() {
     const x=model.last;
     if(!x) {
-      $("finance-update-state").textContent="No transition yet. Click “Step forward one week” to observe an action, reward, and Q-value update.";
+      $("finance-update-state").textContent="No transition yet. Use Guided step to observe an action, reward, and Q-value update.";
       ["finance-q-old","finance-q-target","finance-td-error","finance-q-new"].forEach(id=>$(id).textContent="—");
       $("finance-update-formula").textContent="Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]";
       $("finance-live-q").innerHTML="<p class='finance-small'>All Q-values are initially zero; no preference has been learned.</p>";
@@ -1293,15 +1306,15 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
 "use strict";
 /* One scenario selector and the same four stages for every scenario. */
 (() => {
-  const scenarios = {apple: 0, microsoft: 4, multi: 5};
-  const stages = ["Overview", "Portfolio MDP", "Training", "Evaluation"];
+  const scenarios = {apple: 0, microsoft: 5, multi: 6};
+  const stages = ["Overview", "Portfolio MDP", "Control room", "Training", "Evaluation"];
   const $ = id => document.getElementById(id);
   const tabs = [...document.querySelectorAll("[data-finance-view]")];
   const selectors = [...document.querySelectorAll("[data-scenario]")];
   const panels = [...document.querySelectorAll("[data-finance-panel]")];
   let scenario = "apple", stage = 0;
   function show(nextScenario, nextStage, history = true) {
-    if (!(nextScenario in scenarios) || !Number.isInteger(nextStage) || nextStage < 0 || nextStage > 3) return;
+    if (!(nextScenario in scenarios) || !Number.isInteger(nextStage) || nextStage < 0 || nextStage > 4) return;
     scenario = nextScenario; stage = nextStage;
     panels.forEach(panel => {
       const panelStage = Number(panel.dataset.financePanel);
@@ -1320,28 +1333,27 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
     });
-    $("finance-nav-progress").style.width = `${(stage + 1) * 25}%`;
-    $("finance-view-count").textContent = `${selectors.find(b => b.dataset.scenario === scenario).textContent.trim()} · ${stages[stage]} (${stage + 1}/4)`;
+    $("finance-view-count").textContent = `${selectors.find(b => b.dataset.scenario === scenario).textContent.trim()} · ${stages[stage]} (${stage + 1}/5)`;
     $("finance-prev").disabled = stage === 0;
-    $("finance-next").disabled = stage === 3;
-    $("finance-next").textContent = stage === 3 ? "Scenario complete" : `Next: ${stages[stage + 1]}`;
+    $("finance-next").disabled = stage === 4;
+    $("finance-next").textContent = stage === 4 ? "Scenario complete" : `Next: ${stages[stage + 1]}`;
     if (history) window.history.pushState(null, "", `#${scenario}-${stage}`);
     window.scrollTo({top: 0, behavior: "instant"});
   }
   function fromHash() {
-    const match = /^#(apple|microsoft|multi)-([0-3])$/.exec(location.hash);
+    const match = /^#(apple|microsoft|multi)-([0-4])$/.exec(location.hash);
     show(match?.[1] || "apple", Number(match?.[2] || 0), false);
   }
   selectors.forEach(button => button.addEventListener("click", () => show(button.dataset.scenario, 0)));
   tabs.forEach(button => button.addEventListener("click", () => show(scenario, Number(button.dataset.financeView))));
   $("finance-prev").addEventListener("click", () => show(scenario, stage - 1));
   $("finance-next").addEventListener("click", () => show(scenario, stage + 1));
-  document.querySelectorAll("[data-finance-detail]").forEach(button => button.addEventListener("click", () => {
-    const detail = button.dataset.financeDetail;
-    document.querySelectorAll("[data-finance-detail]").forEach(b => {
+  document.querySelectorAll("[data-finance-board]").forEach(button => button.addEventListener("click", () => {
+    const board = button.dataset.financeBoard;
+    document.querySelectorAll("[data-finance-board]").forEach(b => {
       const selected = b === button; b.classList.toggle("active", selected); b.setAttribute("aria-selected", String(selected));
     });
-    document.querySelectorAll("[data-detail-panel]").forEach(panel => { panel.hidden = panel.dataset.detailPanel !== detail; });
+    document.querySelectorAll("[data-finance-board-panel]").forEach(panel => { panel.hidden = panel.dataset.financeBoardPanel !== board; });
   }));
   window.addEventListener("popstate", fromHash);
   window.addEventListener("hashchange", fromHash);
@@ -1747,6 +1759,37 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   labels();controls();if(window.financePythonReady?.())initialize();
 })();
 
+</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let phase = 0, explanations = [];
+  function showPhase() {
+    const item = explanations[phase];
+    $('finance-guide-title').textContent = item[0];
+    $('finance-guide-copy').textContent = item[1];
+    $('finance-guide-next').hidden = phase === explanations.length - 1;
+  }
+  $('finance-step').addEventListener('click', () => {
+    document.querySelector('[data-finance-board="update"]').click();
+    explanations = [
+      ['Observe and act', $('finance-update-state').innerText.replace(/\s+/g, ' ').trim()],
+      ['Set a target', `The old value was ${$('finance-q-old').textContent}. The Bellman target is ${$('finance-q-target').textContent}.`],
+      ['Find the error', `The difference between target and old value is ${$('finance-td-error').textContent}.`],
+      ['Update memory', `The Q-value is now ${$('finance-q-new').textContent}. The other actions in this state remain visible below.`]
+    ];
+    phase = 0; $('finance-guide').hidden = false; showPhase();
+  });
+  $('finance-guide-next').addEventListener('click', () => { if (phase < explanations.length - 1) { phase++; showPhase(); } });
+  for (const [trigger, original, panel] of [['ch-guided-step','ch-week','ch-guide'],['ma-guided-step','ma-step','ma-guide']]) {
+    $(trigger).addEventListener('click', () => {
+      if ($(original).disabled) return;
+      $(original).click(); $(panel).hidden = false;
+      const update = trigger === 'ch-guided-step' ? $('ch-update').textContent : $('ma-q-update').textContent;
+      $(panel).querySelector('strong').textContent = `One observed transition · Q-value ${update}`;
+    });
+  }
+})();
 </script>
 </body>
 </html>

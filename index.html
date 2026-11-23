@@ -26,6 +26,7 @@
     <button data-view="1">Environment</button>
     <button data-view="2">Q-learning</button>
     <button data-view="3">Training</button>
+    <button data-view="4">Evaluation</button>
   </nav>
   <main>
     <section class="section theory-view workshop-view active" id="overview" data-view-panel="0">
@@ -260,9 +261,30 @@
       </div>
     </section>
 
+    <section class="section workshop-view" id="evaluation" data-view-panel="4">
+      <div class="section-heading">
+        <div><p class="eyebrow">Evaluation</p><h2>How does the learned policy behave?</h2></div>
+        <p>Freeze the current Q-table and run fresh grid-world episodes. These results measure the policy you learned; they do not update it.</p>
+      </div>
+      <div class="evaluation-layout">
+        <article class="panel evaluation-intro">
+          <h3>Training and evaluation have different jobs</h3>
+          <p>Training explores and updates Q-values. Evaluation follows the best current action without exploration or learning. Compare it with a random policy under the same movement uncertainty.</p>
+          <button class="button primary" id="evaluate-grid" type="button" disabled>Evaluate 100 episodes</button>
+          <p class="evaluation-note" id="evaluation-status" role="status">Train in the previous view, then evaluate your current policy.</p>
+        </article>
+        <div class="evaluation-metrics" aria-live="polite">
+          <article class="metric-card"><small>Greedy policy · mean return</small><strong id="eval-greedy-return">—</strong><span>100 fresh episodes</span></article>
+          <article class="metric-card"><small>Random policy · mean return</small><strong id="eval-random-return">—</strong><span>Same environment</span></article>
+          <article class="metric-card"><small>Greedy policy · goal reached</small><strong id="eval-goal-rate">—</strong><span>Episodes ending at +1</span></article>
+        </div>
+      </div>
+      <p class="evaluation-note">The grid world can generate new episodes from its fixed rules. The finance examples instead replay limited historical market data, so their later periods need a stricter interpretation.</p>
+    </section>
+
     <div class="view-controls" aria-label="Workshop navigation">
       <button class="button secondary" id="previous-view">Previous</button>
-      <span id="view-position">1 / 4</span>
+      <span id="view-position">1 / 5</span>
       <button class="button primary" id="next-view">Next</button>
     </div>
   </main>

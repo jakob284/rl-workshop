@@ -80,7 +80,7 @@
 @media(max-width:1050px){.finance-topnav {display:flex;} .finance-lab-grid,.finance-results-grid {grid-template-columns:1fr;}.finance-setup-grid{grid-template-columns:1fr 1fr;}.finance-section .section-heading{grid-template-columns:1fr;gap:12px;}.finance-section{padding:65px 4vw 15px;}}
 @media(max-width:750px){.finance-topnav {display:none;} .finance-hero{padding:65px 18px;}.finance-section{padding:46px 18px 15px;}.finance-lead{font-size:16px;}.finance-setup-grid,.finance-discussion-grid{grid-template-columns:1fr;}.finance-metric-row{grid-template-columns:1fr;}.finance-q-heading{display:block;}.finance-math-note .finance-equation{font-size:15px;}.finance-chart-card{padding:15px;}}
 
-/* Guided four-page lesson shell. Supplements Jakob's unchanged base stylesheet. */
+/* Scenario lesson shell. */
 .finance-step-nav{position:sticky;top:72px;z-index:25;background:rgba(255,253,248,.97);border-bottom:1px solid var(--line);backdrop-filter:blur(15px)}
 .finance-step-list{max-width:1460px;margin:auto;display:flex;justify-content:center;align-items:center;gap:7px;padding:12px 4vw;overflow-x:auto;scrollbar-width:thin}
 .finance-step-link{border:1px solid transparent;border-radius:11px;background:transparent;color:#627171;cursor:pointer;white-space:nowrap;padding:11px 17px;font-size:13px;font-weight:750;transition:background .18s, color .18s}
@@ -332,3 +332,18 @@
   .finance-step-list { justify-content: flex-start; }
   .finance-hero, .ch-hero, .ma-hero { padding-top: 42px; }
 }
+.finance-step-list { gap: 30px; padding: 12px 20px; }
+.finance-step-link, .finance-step-link.active { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 8px 2px; font-size: inherit; font-weight: 650; }
+.finance-step-link.active { border-bottom-color: var(--mint-dark); color: var(--ink); }
+.finance-step-link:hover:not(.active) { background: transparent; border-bottom-color: var(--line); }
+.finance-control-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.finance-control-actions span { color: var(--muted); font-size: 14px; }
+.finance-guide { margin: 0 0 20px; padding: 20px 24px; border: 1px solid #c8ded2; border-radius: 15px; background: #e8f4ee; }
+.finance-guide strong { color: var(--mint-dark); }
+.finance-guide p { margin: 7px 0 14px; }
+.finance-board-tabs { display: flex; gap: 22px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.finance-board-tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 12px 2px; color: var(--muted); font-weight: 750; cursor: pointer; }
+.finance-board-tabs button.active { border-bottom-color: var(--mint-dark); color: var(--ink); }
+[data-finance-board-panel][hidden] { display: none !important; }
+#finance-control-room .finance-q-panel { margin-top: 0; }
+@media (max-width: 750px) { .finance-step-list { gap: 15px; padding: 12px 20px; } .finance-guide { padding: 16px; } }
