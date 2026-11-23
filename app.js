@@ -508,12 +508,12 @@ function resetLearning() {
 
 let activeView = 0;
 function setView(index) {
-  activeView = Math.max(0, Math.min(4, Number(index)));
+  activeView = Math.max(0, Math.min(3, Number(index)));
   document.querySelectorAll("[data-view-panel]").forEach(panel => panel.classList.toggle("active", Number(panel.dataset.viewPanel) === activeView));
   document.querySelectorAll(".basics-nav [data-view]").forEach(button => button.classList.toggle("active", Number(button.dataset.view) === activeView));
-  document.getElementById("view-position").textContent = `${activeView + 1} / 5`;
+  document.getElementById("view-position").textContent = `${activeView + 1} / 4`;
   document.getElementById("previous-view").disabled = activeView === 0;
-  document.getElementById("next-view").disabled = activeView === 4;
+  document.getElementById("next-view").disabled = activeView === 3;
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 

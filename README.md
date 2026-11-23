@@ -4,22 +4,25 @@ Static workshop website for GitHub Pages. The three main areas are **Basics**, *
 
 ## Pages
 
-- `index.html`: theory and interactive grid world, with a separate frozen-policy evaluation page and a short explanation of training, validation and final testing.
-- `finance.html`: Apple, Microsoft, and SPY/TLT/cash scenarios. Each uses Overview, Portfolio MDP, Control room, Training, and Evaluation. The control rooms expose one real Python step and learned Q-values; training controls and reward curves follow on their own page.
+- `index.html`: theory and interactive grid world, with training and diagnostics below the four live Q-learning boards and a separate frozen-policy evaluation page.
+- `finance.html`: Apple, Microsoft, and SPY/TLT/cash scenarios. Each uses Introduction, Environment, Q-learning, and Evaluation. Finance Q-learning shows live policy, value, action-value, and observed-transition boards, with guided playback and training below.
+- `finance-boards.js`: renders the finance control room from the live Python snapshots and provides one-step and replay-pass controls.
 - `coding.html`: first version of the coding area, with a guided Apple notebook and a completed counterpart, source module and data.
 
 ## Teaching flow and interface
 
-The main navigation leads to Basics, Applied to finance, or Coding. Basics and each finance scenario use the same underlined page navigation. The boxed Apple, Microsoft, and Multi-asset selector changes the scenario, not the lesson stage.
+The main navigation leads to Basics, Applied to finance, or Coding. Basics and each finance scenario use the same underlined page labels: Introduction, Environment, Q-learning, Evaluation. The boxed Apple, Microsoft, and Multi-asset selector changes the scenario, not the lesson stage.
 
 | Stage | Basics | Applied to finance |
 | --- | --- | --- |
-| Setup | Introduction and Environment | Overview and Portfolio MDP |
-| One decision | Q-learning Control room with guided step | Control room with a real weekly Q update and learned values |
-| Repeated learning | Training diagnostics | Training controls and reward curves |
-| Frozen policy | Evaluation on fresh grid episodes | Evaluation on later historical periods |
+| Introduction | Academic framing of the MDP | Allocation problem and chronological periods |
+| Environment | Grid world and its rules | Portfolio state, actions, and reward |
+| Q-learning | Four synchronized boards; guided step and playback; expandable training diagnostics below | Four live boards for the current policy, state values, action values, and observed transition; guided step, fast step, replay passes, detailed Q-value inspection and training below |
+| Evaluation | Frozen policy on fresh grid episodes | Frozen policy on later historical periods |
 
-Keep detailed data, implementation, and notebooks in Coding. Keep the finance Q-value boards inside Control room and the training curves inside Training. Evaluation uses the current policy without further Q updates; finance validation and final holdout remain distinct from the training period. Explanatory caveats should appear next to the claim they qualify, without a separate modeling-assumption block at the bottom of a lesson page.
+Keep detailed data, implementation, and notebooks in Coding. Training parameters and reward curves sit in an expandable section below the Q-learning boards, so the first screen remains about the agent and its current policy. The full finance Q-table and trajectories remain in expandable detail sections. One finance replay pass uses the same historical training weeks; it is not a new independent episode. Evaluation uses the current policy without Q updates, and finance validation and final holdout remain distinct from training. Methodological qualifications stay next to the claims they qualify.
+
+The former top-level Training page was folded into Q-learning in both areas; no Python learning or evaluation functionality was removed. Promotional hero phrasing was replaced by descriptive academic titles. The Apple and Microsoft 12-state boards remain immediately visible; the 24-state multi-asset extension uses the same components.
 
 Serve the files locally with `python3 -m http.server 8000` from the repository root, then open `http://localhost:8000/`. The finance learning controls require internet access to load Pyodide. On restricted corporate networks, allow `cdn.jsdelivr.net/pyodide/v0.29.1/full/` or arrange a reviewed local runtime mirror before the workshop.
 
