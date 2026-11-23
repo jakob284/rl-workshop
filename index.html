@@ -67,7 +67,8 @@
 
       <div class="theory-section">
         <div class="theory-section-title"><span>3</span><div><h2>Trajectory, return, and policy</h2><p>How behaviour and outcomes are represented</p></div></div>
-        <div class="full-formula sequence-formula"><span>S₀</span><i>→ A₀ → R₁ →</i><span>S₁</span><i>→ A₁ → R₂ →</i><span>S₂</span><i>→ ···</i></div>
+        <div class="full-formula sequence-formula" role="img" aria-label="In state S zero, take action A zero and observe reward R one and next state S one together; then take action A one and observe reward R two and state S two together."><span>S₀</span><i>→</i><span>A₀</span><i>→</i><span class="outcome">(R₁, S₁)</span><i>→</i><span>A₁</span><i>→</i><span class="outcome">(R₂, S₂)</span><i>→ ···</i></div>
+        <p class="theory-passage">At each decision, the agent observes a state, takes an action, and then observes the reward and next state together.</p>
         <div class="theory-grid two">
           <article class="theory-card formula-card-theory"><h3>Discounted return</h3><div class="card-formula">Gₜ = Σ<sub>k=0</sub><sup>∞</sup> γᵏRₜ₊ₖ₊₁</div><p>The return aggregates rewards from time t onward. A smaller γ places less weight on distant outcomes.</p></article>
           <article class="theory-card formula-card-theory"><h3>Policy</h3><div class="card-formula">π(a | s) = P(Aₜ=a | Sₜ=s)</div><p>A stochastic policy assigns action probabilities to states. A deterministic policy maps each state to one action.</p></article>
@@ -84,37 +85,26 @@
       </div>
 
       <div class="theory-section">
-        <div class="theory-section-title"><span>5</span><div><h2>Bellman equations and dynamic programming</h2><p>Recursive one-step relationships when the model is known</p></div></div>
+        <div class="theory-section-title"><span>5</span><div><h2>Bellman backups and Q-learning</h2><p>From an expected outcome to one observed update</p></div></div>
         <div class="full-formula major">
-          <div><span class="formula-label">Bellman expectation equation</span><div class="formula-main small">V<sup>π</sup>(s) = Σ<sub>a</sub>π(a|s) Σ<sub>s′,r</sub>p(s′,r|s,a)[r + γV<sup>π</sup>(s′)]</div></div>
-          <p>Policy evaluation averages over the actions selected by π and all next outcomes permitted by the model.</p>
-        </div>
-        <div class="full-formula major">
-          <div><span class="formula-label">Bellman optimality equation</span><div class="formula-main small">Q*(s,a) = Σ<sub>s′,r</sub>p(s′,r|s,a)[r + γ max<sub>a′</sub>Q*(s′,a′)]</div></div>
-          <p>The value of the first action equals its expected immediate reward plus the discounted value of acting optimally afterwards.</p>
-        </div>
-        <div class="theory-grid two">
-          <article class="theory-card"><h3>Value iteration</h3><p>Initialize values arbitrarily and repeatedly apply Bellman optimality backups until the value changes are sufficiently small. Extract the greedy policy afterwards.</p></article>
-          <article class="theory-card"><h3>Policy iteration</h3><p>Alternate between evaluating the current policy and improving it through one-step lookahead until the policy is stable.</p></article>
-        </div>
-      </div>
-
-      <div class="theory-section">
-        <div class="theory-section-title"><span>6</span><div><h2>Temporal-difference learning</h2><p>Replacing model expectations with observed samples</p></div></div>
-        <p class="theory-passage">When <strong>p(s′,r|s,a)</strong> is not supplied, the agent cannot perform the probability-weighted Bellman sum directly. Temporal-difference learning uses an observed transition <strong>(S<sub>t</sub>, A<sub>t</sub>, R<sub>t+1</sub>, S<sub>t+1</sub>)</strong> and bootstraps from the current value estimate.</p>
-        <div class="theory-grid three">
-          <article class="theory-card formula-card-theory"><h3>TD target</h3><div class="card-formula">Yₜ = Rₜ₊₁ + γ max<sub>a′</sub>Q(Sₜ₊₁,a′)</div><p>A sampled one-step approximation to the optimal Bellman target.</p></article>
-          <article class="theory-card formula-card-theory"><h3>TD error</h3><div class="card-formula">δₜ = Yₜ − Q(Sₜ,Aₜ)</div><p>The discrepancy between the sampled target and the current estimate.</p></article>
-          <article class="theory-card formula-card-theory"><h3>Q-learning update</h3><div class="card-formula">Q(Sₜ,Aₜ) ← Q(Sₜ,Aₜ) + αδₜ</div><p>The current estimate moves a fraction α toward the sampled target.</p></article>
+          <div><span class="formula-label">Planning with a known model</span><div class="formula-main small">Q*(s,a) = E[r + γ max<sub>a′</sub> Q*(s′,a′) | s,a]</div></div>
+          <p>The Bellman optimality equation averages over possible rewards and next states using a supplied transition model. This is the model-based formula used to plan an optimal action.</p>
         </div>
         <div class="full-formula major q-update">
-          <div><span class="formula-label">Combined Q-learning update</span><div class="formula-main small">Q(Sₜ,Aₜ) ← Q(Sₜ,Aₜ) + α[Rₜ₊₁ + γ max<sub>a′</sub>Q(Sₜ₊₁,a′) − Q(Sₜ,Aₜ)]</div></div>
-          <p>Q-learning is off-policy: the update targets the greedy continuation, while the behaviour policy may still explore.</p>
+          <div><span class="formula-label">Learning from one observed transition</span><div class="formula-main small">Q(s,a) ← Q(s,a) + α[r + γ max<sub>a′</sub> Q(s′,a′) − Q(s,a)]</div></div>
+          <p>Q-learning uses the reward and next state that actually occurred. It does not need the transition probabilities; the current estimates stand in for unknown future values.</p>
         </div>
+        <p class="theory-passage">The observed tuple <strong>(S<sub>t</sub>, A<sub>t</sub>, R<sub>t+1</sub>, S<sub>t+1</sub>)</strong> gives the pieces of one update:</p>
+        <div class="theory-grid three">
+          <article class="theory-card formula-card-theory"><h3>TD target</h3><div class="card-formula">Yₜ = Rₜ₊₁ + γ max<sub>a′</sub> Q(Sₜ₊₁,a′)</div><p>Reward plus the estimated best continuation.</p></article>
+          <article class="theory-card formula-card-theory"><h3>TD error</h3><div class="card-formula">δₜ = Yₜ − Q(Sₜ,Aₜ)</div><p>Difference between the target and the old estimate.</p></article>
+          <article class="theory-card formula-card-theory"><h3>Update</h3><div class="card-formula">Q(Sₜ,Aₜ) ← Q(Sₜ,Aₜ) + αδₜ</div><p>Move the selected estimate by a fraction α of the error.</p></article>
+        </div>
+        <div class="theory-note"><strong>Planning methods.</strong> Value iteration repeats optimality backups. Policy iteration alternates evaluating a fixed policy and improving it. Q-learning learns from sampled transitions and targets a greedy continuation even while its behaviour policy explores.</div>
       </div>
 
       <div class="theory-section">
-        <div class="theory-section-title"><span>7</span><div><h2>Exploration and hyperparameters</h2><p>Choices governing learning dynamics</p></div></div>
+        <div class="theory-section-title"><span>6</span><div><h2>Exploration and hyperparameters</h2><p>Choices governing learning dynamics</p></div></div>
         <div class="theory-grid three">
           <article class="theory-card"><span class="symbol">α</span><h3>Learning rate</h3><p>Determines how strongly a new TD error changes the estimate. A fixed α is useful for demonstration; convergence theory generally requires a suitable decreasing schedule.</p></article>
           <article class="theory-card"><span class="symbol">γ</span><h3>Discount factor</h3><p>Part of the decision objective rather than merely a training setting. It determines the relative importance of future rewards.</p></article>
@@ -128,7 +118,7 @@
       </div>
 
       <div class="theory-section algorithm-section">
-        <div class="theory-section-title"><span>8</span><div><h2>Tabular Q-learning algorithm</h2><p>Complete procedure used by the demonstration</p></div></div>
+        <div class="theory-section-title"><span>7</span><div><h2>Tabular Q-learning algorithm</h2><p>Complete procedure used by the demonstration</p></div></div>
         <ol class="algorithm-list">
           <li><span>1</span><div><strong>Initialize</strong><p>Assign an initial value to every accessible Q(s,a).</p></div></li>
           <li><span>2</span><div><strong>Observe and select</strong><p>Observe S<sub>t</sub> and choose A<sub>t</sub> using an exploratory behaviour policy such as ε-greedy.</p></div></li>
@@ -222,6 +212,7 @@
         <p id="guided-copy">This state contains the information used for the next decision.</p>
         <div class="calculation" id="guided-calculation"></div>
         <div class="guided-actions"><button class="button small ghost" id="close-guided">Close</button><button class="button small primary" id="next-guided">Next calculation step</button></div>
+        <div class="guided-history" id="guided-history" hidden><h4>Calculated so far</h4><ol id="guided-history-list"></ol></div>
       </div>
 
       <details class="training-disclosure"><summary>Training and diagnostics</summary>

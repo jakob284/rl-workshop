@@ -4,6 +4,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const snapshots = {};
+  const held = {};
   const selected = { apple: null, msft: null, multi: null };
   const choices = {
     apple: ["0%", "50%", "100%"],
@@ -28,7 +29,8 @@
   function draw(kind) {
     const snapshot = snapshots[kind];
     if (!snapshot?.q) return;
-    const { q, last, enabled } = snapshot;
+    const { last, enabled, meta } = snapshot;
+    const q = held[kind] || snapshot.q;
     const active = selected[kind] ?? last?.s ?? last?.state ?? 0;
     const observed = last?.s ?? last?.state;
     const board = $(kind + "-state-board");
@@ -42,11 +44,13 @@
         <span class="finance-state-qs">${estimates}</span>
       </button>`;
     }).join("");
-    const description = !last ? "No transition yet. Use a playback control to observe a weekly decision."
-      : kind === "apple"
-        ? `State s${last.s} (${stateLabel(kind,last.s)}); chose ${choices[kind][last.a]}. Reward ${value(last.reward)}; Q-value ${value(last.oldQ)} → ${value(last.updated)}.`
-        : $(kind === "msft" ? "ch-last-decision" : "ma-last-decision").textContent;
-    $(kind + "-agent-board").textContent = description.replace(/\s+/g, " ").trim();
+    const state = last?.s ?? last?.state;
+    const action = last?.a ?? last?.action;
+    const readout = { date: meta?.date ?? "—", state: last ? `s${state}` : "—",
+      action: last ? choices[kind][action] : "—",
+      reward: last ? `${(last.reward * 100).toFixed(2)}%` : "—",
+      pass: `${((meta?.currentReward ?? 0) * 100).toFixed(2)}%` };
+    for (const [field, text] of Object.entries(readout)) $(kind + "-read-" + field).textContent = text;
     board.querySelectorAll("[data-state]").forEach(card => card.addEventListener("click", () => {
       selected[kind] = Number(card.dataset.state);
       const selector = $(kind === "msft" ? "ch-state" : kind === "multi" ? "ma-state" : "no-select");
@@ -58,26 +62,37 @@
     $(guideButton[kind]).disabled = !enabled;
   }
 
-  window.renderFinanceBoards = (kind, q, last, enabled) => {
-    snapshots[kind] = { q, last, enabled };
+  window.renderFinanceBoards = (kind, q, last, enabled, meta) => {
+    snapshots[kind] = { q, last, enabled, meta };
     if (last && selected[kind] === null) selected[kind] = last.s ?? last.state ?? 0;
     draw(kind);
   };
+  window.finishFinanceGuided = kind => { delete held[kind]; draw(kind); };
   for (const [id, kind] of [["ch-state", "msft"], ["ma-state", "multi"]]) {
     $(id).addEventListener("change", event => { selected[kind] = Number(event.target.value); draw(kind); });
   }
   for (const kind of Object.keys(guideButton)) {
     $(guideButton[kind]).disabled = true;
+    $(guideButton[kind]).addEventListener("click", () => {
+      if (snapshots[kind]?.q) held[kind] = snapshots[kind].q.map(row => row.slice());
+    }, true);
     const start = $(kind === "apple" ? "finance-train" : kind === "msft" ? "ch-start" : "ma-start");
-    start.addEventListener("click", () => { $(guideId[kind]).hidden = true; });
+    start.addEventListener("click", () => { window.finishFinanceGuided(kind); $(guideId[kind]).hidden = true; }, true);
+    $(kind === "apple" ? "finance-reset" : kind === "msft" ? "ch-reset" : "ma-reset")
+      .addEventListener("click", () => window.finishFinanceGuided(kind), true);
   }
   document.querySelectorAll("[data-finance-action]").forEach(button => {
     button.disabled = true;
     button.addEventListener("click", () => {
       if (button.disabled) return;
       const kind = button.dataset.for;
-      $(guideId[kind === "microsoft" ? "msft" : kind]).hidden = true;
+      const boardKind = kind === "microsoft" ? "msft" : kind;
+      window.finishFinanceGuided(boardKind);
+      $(guideId[boardKind]).hidden = true;
       window.financeAdvance?.[kind]?.(button.dataset.financeAction === "ten" ? 10 : 1);
     });
   });
+  document.querySelectorAll("[data-scenario], [data-finance-view]").forEach(button => button.addEventListener("click", () => {
+    for (const kind of Object.keys(guideId)) { if (held[kind]) window.finishFinanceGuided(kind); $(guideId[kind]).hidden = true; }
+  }));
 })();

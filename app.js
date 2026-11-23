@@ -188,6 +188,7 @@ function finishEpisode() {
 }
 
 function fastStep() {
+  if (guided) { guided = null; document.getElementById("guided-card").hidden = true; }
   if (TERMINALS.has(agentState)) finishEpisode();
   const s = agentState;
   const a = chooseAction(s);
@@ -203,6 +204,7 @@ function runEpisode(render = true) {
 }
 
 function runEpisodes(count) {
+  if (guided) { guided = null; document.getElementById("guided-card").hidden = true; }
   const oldRender = renderAll;
   for (let i = 0; i < count; i++) {
     const startingEpisode = episodeCount;
@@ -482,23 +484,35 @@ function renderGuided() {
     ["8 · Refresh", `The action value and policy can now change.`, "The synchronized boards refresh after the update. Repeated experience gradually shapes the learned value surface.", `Q(${stateName(g.s)},${ACTIONS[g.a].arrow}) ← ${g.updated.toFixed(3)}`]
   ];
   const [label,title,copy,calc] = steps[g.index];
-  document.getElementById("guided-index").textContent = `${g.index + 1} / ${steps.length}`;
-  document.getElementById("guided-bar").style.width = `${(g.index + 1) / steps.length * 100}%`;
+  document.getElementById("guided-index").textContent = `${g.applied ? steps.length : g.index + 1} / ${steps.length}`;
+  document.getElementById("guided-bar").style.width = `${(g.applied ? 1 : (g.index + 1) / steps.length) * 100}%`;
   document.getElementById("guided-label").textContent = label;
-  document.getElementById("guided-title").textContent = title;
-  document.getElementById("guided-copy").textContent = copy;
+  document.getElementById("guided-title").textContent = g.applied ? "Update applied to the Q-table." : title;
+  document.getElementById("guided-copy").textContent = g.applied ? "The boards above now reflect the completed update." : copy;
   document.getElementById("guided-calculation").textContent = calc;
+  const history = document.getElementById("guided-history");
+  const list = document.getElementById("guided-history-list");
+  list.replaceChildren();
+  steps.slice(0, g.applied ? steps.length : g.index).forEach(([stepLabel,, , result]) => {
+    const item = document.createElement("li");
+    const name = document.createElement("span"); name.textContent = stepLabel;
+    const value = document.createElement("strong"); value.textContent = result;
+    item.append(name, value); list.append(item);
+  });
+  history.hidden = !list.childElementCount;
+  document.getElementById("next-guided").hidden = !!g.applied;
   document.getElementById("next-guided").textContent = g.index === steps.length - 1 ? "Apply update" : "Next calculation step";
 }
 
 function advanceGuided() {
-  if (!guided) return;
+  if (!guided || guided.applied) return;
   if (guided.index < 7) { guided.index++; renderGuided(); return; }
   completeTransition(guided.s, guided.a, guided.transition, true);
-  guided = null; document.getElementById("guided-card").hidden = true;
+  guided.applied = true; renderGuided();
 }
 
 function resetLearning() {
+  guided = null; document.getElementById("guided-card").hidden = true;
   clearEvaluation();
   visits.fill(0); pairVisits.forEach(row => row.fill(0));
   agentState = START; episodeReturn = 0; episodeSteps = 0; episodeCount = 0; returnHistory = []; path = [START]; randomState = 934775;
