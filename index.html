@@ -25,15 +25,14 @@
     <button class="active" data-view="0">Introduction</button>
     <button data-view="1">Environment</button>
     <button data-view="2">Q-learning</button>
-    <button data-view="3">Training</button>
-    <button data-view="4">Evaluation</button>
+    <button data-view="3">Evaluation</button>
   </nav>
   <main>
     <section class="section theory-view workshop-view active" id="overview" data-view-panel="0">
       <header class="theory-header">
         <p class="eyebrow">TUM · Corporate Partner Workshop</p>
         <h1>Workshop: Reinforcement Learning</h1>
-        <p>This section establishes the theoretical framework used in the subsequent environment, Q-learning, and training views.</p>
+        <p>This section establishes the theoretical framework used in the environment and Q-learning views.</p>
       </header>
 
       <div class="theory-section">
@@ -167,7 +166,7 @@
           <article><span>State space</span><strong>𝓢 = accessible grid cells</strong><p>22 accessible positions; three obstacle cells are excluded.</p></article>
           <article><span>Action space</span><strong>𝓐 = {↑, →, ↓, ←}</strong><p>Invalid moves leave the agent in its current state.</p></article>
           <article><span>Rewards</span><strong>+1, −1, and −0.04</strong><p>Terminal goal, terminal loss, and living cost respectively.</p></article>
-          <article><span>Transition model</span><strong>Deterministic by default</strong><p>The Training view can introduce lateral movement uncertainty.</p></article>
+          <article><span>Transition model</span><strong>Deterministic by default</strong><p>Training controls below the Q-learning boards can introduce lateral movement uncertainty.</p></article>
           <article><span>Initial state</span><strong>S₀ = s20</strong><p>Every episode starts in the bottom-left grid cell.</p></article>
           <article><span>Termination</span><strong>s4 or s14</strong><p>The episode ends after reaching the goal or loss state.</p></article>
         </div>
@@ -225,9 +224,8 @@
         <div class="guided-actions"><button class="button small ghost" id="close-guided">Close</button><button class="button small primary" id="next-guided">Next calculation step</button></div>
       </div>
 
-    </section>
-
-    <section class="section workshop-view" id="training-lab" data-view-panel="3">
+      <details class="training-disclosure"><summary>Training and diagnostics</summary>
+    <section class="training-content" id="training-lab">
       <div class="section-heading">
         <div><p class="eyebrow">Training</p><h2>Parameters and training diagnostics</h2></div>
         <p>The controls change the Q-learning update and the environment. The charts are generated from the browser simulation.</p>
@@ -261,7 +259,10 @@
       </div>
     </section>
 
-    <section class="section workshop-view" id="evaluation" data-view-panel="4">
+      </details>
+    </section>
+
+    <section class="section workshop-view" id="evaluation" data-view-panel="3">
       <div class="section-heading">
         <div><p class="eyebrow">Evaluation</p><h2>How does the learned policy behave?</h2></div>
         <p>Freeze the current Q-table and run fresh grid-world episodes. These results measure the policy you learned; they do not update it.</p>
@@ -271,7 +272,7 @@
           <h3>Training and evaluation have different jobs</h3>
           <p>Training explores and updates Q-values. Evaluation follows the best current action without exploration or learning. Compare it with a random policy under the same movement uncertainty.</p>
           <button class="button primary" id="evaluate-grid" type="button" disabled>Evaluate 100 episodes</button>
-          <p class="evaluation-note" id="evaluation-status" role="status">Train in the previous view, then evaluate your current policy.</p>
+          <p class="evaluation-note" id="evaluation-status" role="status">Train in the Q-learning view, then evaluate your current policy.</p>
         </article>
         <div class="evaluation-metrics" aria-live="polite">
           <article class="metric-card"><small>Greedy policy · mean return</small><strong id="eval-greedy-return">—</strong><span>100 fresh episodes</span></article>
