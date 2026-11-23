@@ -89,13 +89,13 @@
     </article>
         <div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
-      <button type="button" class="button small primary" id="finance-step">Guided step</button>
+      <button type="button" class="button small" id="finance-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="apple">Fast step</button>
       <button type="button" class="button small" data-finance-action="ten" data-for="apple">10 steps</button>
-      <button type="button" class="button small primary" id="finance-train" disabled>Start training</button>
-      <button type="button" class="button small secondary" id="finance-pause" disabled>Pause</button>
-      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
+      <button type="button" class="button small" id="finance-train" disabled>Start training</button>
+      <button type="button" class="button small ghost" id="finance-pause" disabled>Pause</button>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="apple-read-date">—</strong></div><div><small>State</small><strong id="apple-read-state">—</strong></div><div><small>Action</small><strong id="apple-read-action">—</strong></div><div><small>Reward</small><strong id="apple-read-reward">—</strong></div><div><small>Pass reward</small><strong id="apple-read-pass">0.00%</strong></div></div></div>
+        <p class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</p>
         <div class="finance-guide" id="finance-guide" hidden>
   <ol class="guided-steps" id="finance-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="finance-guide-title">Observe the weekly state</h3>
@@ -209,13 +209,13 @@
     </article></section>
       <section class="finance-section"><div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
-      <button type="button" class="button small primary" id="ch-guided-step">Guided step</button>
+      <button type="button" class="button small" id="ch-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="microsoft">Fast step</button>
       <button type="button" class="button small" data-finance-action="ten" data-for="microsoft">10 steps</button>
-      <button type="button" class="button small primary" id="ch-start" disabled>Start training</button>
-      <button type="button" class="button small secondary" id="ch-pause" disabled>Pause</button>
-      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
+      <button type="button" class="button small" id="ch-start" disabled>Start training</button>
+      <button type="button" class="button small ghost" id="ch-pause" disabled>Pause</button>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="msft-read-date">—</strong></div><div><small>State</small><strong id="msft-read-state">—</strong></div><div><small>Action</small><strong id="msft-read-action">—</strong></div><div><small>Reward</small><strong id="msft-read-reward">—</strong></div><div><small>Pass reward</small><strong id="msft-read-pass">0.00%</strong></div></div></div>
+        <p class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</p>
       <div class="finance-guide" id="ch-guide" hidden>
   <ol class="guided-steps" id="ch-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="ch-guide-title">Observe the weekly state</h3>
@@ -319,13 +319,13 @@
     </article></section>
       <section class="finance-section ma-section"><div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
-      <button type="button" class="button small primary" id="ma-guided-step">Guided step</button>
+      <button type="button" class="button small" id="ma-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="multi">Fast step</button>
       <button type="button" class="button small" data-finance-action="ten" data-for="multi">10 steps</button>
-      <button type="button" class="button small primary" id="ma-start" disabled>Start training</button>
-      <button type="button" class="button small secondary" id="ma-pause" disabled>Pause</button>
-      <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
+      <button type="button" class="button small" id="ma-start" disabled>Start training</button>
+      <button type="button" class="button small ghost" id="ma-pause" disabled>Pause</button>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="multi-read-date">—</strong></div><div><small>State</small><strong id="multi-read-state">—</strong></div><div><small>Action</small><strong id="multi-read-action">—</strong></div><div><small>Reward</small><strong id="multi-read-reward">—</strong></div><div><small>Pass reward</small><strong id="multi-read-pass">0.00%</strong></div></div></div>
+        <p class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</p>
       <div class="finance-guide" id="ma-guide" hidden>
   <ol class="guided-steps" id="ma-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="ma-guide-title">Observe the weekly state</h3>
@@ -380,9 +380,9 @@
       <section class="finance-section ma-section finance-preview"><div class="panel finance-math-note"><span class="finance-step">A look ahead</span><h3>What if we observed many more signals?</h3><p>Two momentum signs and the previous choice make 24 states here. Adding many continuous indicators quickly makes a Q-table hard to fill from experience. A deep Q-network can approximate action values with a neural network. That is a preview of a later topic, not the model running in this workshop.</p><a class="button secondary" href="coding.html">See the coding preview</a></div></section>
       </div>
     </div>
-    <div class="finance-pager" aria-label="Case study navigation">
-      <button type="button" id="finance-prev" class="button secondary">← Previous</button>
-      <span id="finance-view-count" role="status" aria-live="polite">Apple · Introduction (1/4)</span>
+    <div class="view-controls finance-pager" aria-label="Case study navigation">
+      <button type="button" id="finance-prev" class="button secondary">Previous</button>
+      <span id="finance-view-count" role="status" aria-live="polite">1 / 4</span>
       <button type="button" id="finance-next" class="button primary">Next: Environment</button>
     </div>
   </main>
@@ -1370,7 +1370,8 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
     });
-    $("finance-view-count").textContent = `${selectors.find(b => b.dataset.scenario === scenario).textContent.trim()} · ${stages[stage]} (${stage + 1}/4)`;
+    $("finance-view-count").textContent = `${stage + 1} / 4`;
+    $("finance-view-count").setAttribute("aria-label", `${selectors.find(b => b.dataset.scenario === scenario).textContent.trim()} · ${stages[stage]}, page ${stage + 1} of 4`);
     $("finance-prev").disabled = stage === 0;
     $("finance-next").disabled = stage === 3;
     $("finance-next").textContent = stage === 3 ? "Scenario complete" : `Next: ${stages[stage + 1]}`;
