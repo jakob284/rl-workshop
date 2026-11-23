@@ -77,24 +77,18 @@
     </section>
 
 
-    <section class="finance-section finance-method-bridge" aria-labelledby="bridge-title">
-      <div class="section-heading"><div><p class="eyebrow">From theory to implementation</p><h2 id="bridge-title">Bellman planning versus learning from data</h2></div><p>Both approaches consider immediate rewards and future consequences. They differ in how the required expectations are obtained.</p></div>
-      <div class="finance-method-grid">
-        <article class="panel finance-method-card"><span class="finance-step">Classical dynamic programming</span><h3>Know a transition model</h3><p>With known rewards and transition probabilities, Bellman backups average over possible outcomes and compute optimal values within the model.</p><div class="finance-equation small">Q*(s,a) = E[r + γ max Q*(s′,·) | s,a]</div></article>
-        <article class="panel finance-method-card"><span class="finance-step">Tabular Q-learning</span><h3>Learn from observed transitions</h3><p>We do not supply the market transition probabilities. The agent updates a Q-table using realized weekly returns from the training period.</p><div class="finance-equation small">Q ← Q + α [r + γ max Q(s′,·) − Q]</div></article>
-      </div>
-    </section>
+
     </div>
 
     <div class="finance-view" id="finance-control-room" data-finance-panel="2" hidden>
       <section class="finance-section" aria-labelledby="apple-control-title">
         <div class="section-heading"><div><p class="eyebrow">Q-learning · control room</p><h2 id="apple-control-title">State, action values, policy, and experience</h2></div><p>Advance one historical week, inspect the Bellman update, then follow the learned values across all 12 states.</p></div>
         <article class="finance-state-panel board-panel" aria-label="12 portfolio states and action values">
-      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
+      <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to compare its action values.</p></div></div>
       <div class="finance-state-matrix" id="apple-state-board"></div>
-      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="apple-agent-board">No transition yet.</p></div>
+      
     </article>
-        <div class="finance-playback" aria-label="Playback controls">
+        <div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
       <button type="button" class="button small primary" id="finance-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="apple">Fast step</button>
@@ -102,19 +96,19 @@
       <button type="button" class="button small primary" id="finance-train" disabled>Start training</button>
       <button type="button" class="button small secondary" id="finance-pause" disabled>Pause</button>
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
-    </div>
-        <div class="finance-guide" id="finance-guide" hidden><strong id="finance-guide-title">Observe the state</strong><p id="finance-guide-copy"></p><button type="button" id="finance-guide-next" class="button small secondary">Next calculation step</button>
-<article class="panel finance-learning-transition">
-            <div class="chart-header"><div><span class="panel-kicker">One real Q-learning update</span><h3>One observed Q-learning update</h3></div></div>
-            <div id="finance-update-state" class="finance-update-state">No transition yet. Use Guided step to observe an action, reward, and Q-value update.</div>
-            <div class="finance-update-grid"><div><small>Old Q(s,a)</small><strong id="finance-q-old">—</strong></div><div><small>Bellman target</small><strong id="finance-q-target">—</strong></div><div><small>TD error</small><strong id="finance-td-error">—</strong></div><div><small>Updated Q(s,a)</small><strong id="finance-q-new">—</strong></div></div>
-            <p id="finance-update-formula" class="finance-update-formula">Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]</p>
-            <p id="finance-recent-note" class="finance-small">The three Q-values below are updated live for the most recently visited state. Watch them change as training runs.</p>
-            <div id="finance-live-q" class="finance-live-q"></div>
-          </article></div>
-<details class="finance-detail-disclosure"><summary>Full Q-table and state visits</summary>
-<article class="panel finance-q-panel"><div class="finance-q-heading"><div><h3>Current Q-table</h3><p>The 36 Q-values begin at zero and change as the agent receives rewards. Green marks the currently best action in each state.</p></div><p class="finance-small">“Visits” counts experienced training transitions, including repeated passes; these are not new market histories.</p></div><div class="finance-table-scroll"><table class="finance-table finance-q-table"><thead><tr><th>4-week trend</th><th>12-week trend</th><th>Previous weight</th><th>Q(0%)</th><th>Q(50%)</th><th>Q(100%)</th><th>Best action</th><th>Replay visits</th></tr></thead><tbody id="finance-q-body"></tbody></table></div></article>
-</details>
+    </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="apple-read-date">—</strong></div><div><small>State</small><strong id="apple-read-state">—</strong></div><div><small>Action</small><strong id="apple-read-action">—</strong></div><div><small>Reward</small><strong id="apple-read-reward">—</strong></div><div><small>Pass reward</small><strong id="apple-read-pass">0.00%</strong></div></div></div>
+        <div class="finance-guide" id="finance-guide" hidden>
+  <div class="guided-progress"><span id="finance-guide-index">1 / 7</span><div><i id="finance-guide-bar"></i></div></div>
+  <p class="eyebrow" id="finance-guide-label">Observe</p>
+  <h3 id="finance-guide-title">Observe the weekly state</h3>
+  <p id="finance-guide-copy"></p>
+  <div class="calculation" id="finance-guide-calculation"></div>
+  <div class="guided-actions"><button type="button" class="button small ghost" id="finance-guide-close">Close</button><button type="button" class="button small primary" id="finance-guide-next">Next calculation step</button></div>
+  <div class="guided-history" id="finance-guide-history" hidden><h4>Calculated so far</h4><ol id="finance-guide-history-list"></ol></div>
+  <p class="finance-guide-result" id="finance-guide-result" hidden></p>
+  
+</div>
+
       </section>
       <details class="training-disclosure"><summary>Training and diagnostics</summary>
     <section class="finance-section" id="case-lab" aria-labelledby="lab-title">
@@ -214,9 +208,9 @@
       <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="12 portfolio states and action values">
       <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
       <div class="finance-state-matrix" id="msft-state-board"></div>
-      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="msft-agent-board">No transition yet.</p></div>
+      
     </article></section>
-      <section class="finance-section"><div class="finance-playback" aria-label="Playback controls">
+      <section class="finance-section"><div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
       <button type="button" class="button small primary" id="ch-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="microsoft">Fast step</button>
@@ -224,15 +218,25 @@
       <button type="button" class="button small primary" id="ch-start" disabled>Start training</button>
       <button type="button" class="button small secondary" id="ch-pause" disabled>Pause</button>
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
-    </div>
-      <div class="finance-guide" id="ch-guide" hidden><strong id="ch-guide-title">Observe and act</strong><p id="ch-guide-copy"></p><p id="ch-last-decision" hidden>No decisions yet.</p><button type="button" id="ch-guide-next" class="button small secondary">Next calculation step</button></div></section>
-      <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectories and full policy table</summary>
+    </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="msft-read-date">—</strong></div><div><small>State</small><strong id="msft-read-state">—</strong></div><div><small>Action</small><strong id="msft-read-action">—</strong></div><div><small>Reward</small><strong id="msft-read-reward">—</strong></div><div><small>Pass reward</small><strong id="msft-read-pass">0.00%</strong></div></div></div>
+      <div class="finance-guide" id="ch-guide" hidden>
+  <div class="guided-progress"><span id="ch-guide-index">1 / 7</span><div><i id="ch-guide-bar"></i></div></div>
+  <p class="eyebrow" id="ch-guide-label">Observe</p>
+  <h3 id="ch-guide-title">Observe the weekly state</h3>
+  <p id="ch-guide-copy"></p>
+  <div class="calculation" id="ch-guide-calculation"></div>
+  <div class="guided-actions"><button type="button" class="button small ghost" id="ch-guide-close">Close</button><button type="button" class="button small primary" id="ch-guide-next">Next calculation step</button></div>
+  <div class="guided-history" id="ch-guide-history" hidden><h4>Calculated so far</h4><ol id="ch-guide-history-list"></ol></div>
+  <p class="finance-guide-result" id="ch-guide-result" hidden></p>
+  <p id="ch-last-decision" hidden></p>
+</div></section>
+      <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectory for a selected state</summary>
       <section class="finance-section ch-section ch-inspect">
-        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Action values and learned policy</h2><p>Choose a market state. The plot shows the three Q-values for this exact state after every completed training pass. The policy table shows which allocation each state currently prefers.</p></header>
+        <header class="ch-section-heading"><p class="eyebrow">02 · See what the agent learns</p><h2>Action values and learned policy</h2><p>Choose a market state. The plot shows the three Q-values for this state after each completed training pass. The state panel above shows the current policy.</p></header>
         <div class="ch-inspection-top"><label for="ch-state"><strong>Inspect a state</strong><select id="ch-state" aria-label="Choose market state"></select></label><p id="ch-state-definition">Select a state to inspect short-term momentum, long-term momentum, and previous allocation.</p></div>
         <div class="ch-visual-grid">
           <div class="ch-live"><div class="ch-chart-head"><span><strong>Three Q-values over training</strong></span><span><i class="ch-dot ch-cash"></i>Cash <i class="ch-dot ch-half"></i>50% <i class="ch-dot ch-full"></i>100%</span></div><svg id="ch-q-chart" viewBox="0 0 780 285" role="img" aria-label="Q-value learning trajectory for selected state"><text x="390" y="145" text-anchor="middle" class="finance-empty-chart">Complete a training pass to plot Q-values</text></svg><p id="ch-state-readout" class="finance-small">Q-values start at zero, so the initial choice is a tie.</p></div>
-          <div class="ch-live"><h3 class="ch-microhead">Learned policy · all 12 states</h3><div id="ch-policy-table" class="ch-table-scroll"></div><p class="finance-small">The preferred action is the largest current Q-value. A change in that ranking is a change in the learned policy; a Q-value change alone need not change the policy.</p></div>
+
         </div>
       </section>
       </details>
@@ -316,9 +320,9 @@
       <section class="finance-section finance-board-section"><article class="finance-state-panel board-panel" aria-label="24 portfolio states and action values">
       <div class="board-title"><span>Q</span><div><h3>State-action values and current policy</h3><p>Each state shows its signals, the current greedy allocation, and every Q-value. Select a state to inspect its training trajectory below.</p></div></div>
       <div class="finance-state-matrix" id="multi-state-board"></div>
-      <div class="finance-agent-readout"><strong>Observed transition</strong><p id="multi-agent-board">No transition yet.</p></div>
+      
     </article></section>
-      <section class="finance-section ma-section"><div class="finance-playback" aria-label="Playback controls">
+      <section class="finance-section ma-section"><div class="finance-playback" aria-label="Playback controls"><div class="finance-playback-controls">
       <span class="console-label">Playback</span>
       <button type="button" class="button small primary" id="ma-guided-step">Guided step</button>
       <button type="button" class="button small" data-finance-action="fast" data-for="multi">Fast step</button>
@@ -326,8 +330,18 @@
       <button type="button" class="button small primary" id="ma-start" disabled>Start training</button>
       <button type="button" class="button small secondary" id="ma-pause" disabled>Pause</button>
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
-    </div>
-      <div class="finance-guide" id="ma-guide" hidden><strong id="ma-guide-title">Observe and act</strong><p id="ma-guide-copy"></p><p id="ma-last-decision" hidden>No decisions yet.</p><button type="button" id="ma-guide-next" class="button small secondary">Next calculation step</button></div></section>
+    </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="multi-read-date">—</strong></div><div><small>State</small><strong id="multi-read-state">—</strong></div><div><small>Action</small><strong id="multi-read-action">—</strong></div><div><small>Reward</small><strong id="multi-read-reward">—</strong></div><div><small>Pass reward</small><strong id="multi-read-pass">0.00%</strong></div></div></div>
+      <div class="finance-guide" id="ma-guide" hidden>
+  <div class="guided-progress"><span id="ma-guide-index">1 / 7</span><div><i id="ma-guide-bar"></i></div></div>
+  <p class="eyebrow" id="ma-guide-label">Observe</p>
+  <h3 id="ma-guide-title">Observe the weekly state</h3>
+  <p id="ma-guide-copy"></p>
+  <div class="calculation" id="ma-guide-calculation"></div>
+  <div class="guided-actions"><button type="button" class="button small ghost" id="ma-guide-close">Close</button><button type="button" class="button small primary" id="ma-guide-next">Next calculation step</button></div>
+  <div class="guided-history" id="ma-guide-history" hidden><h4>Calculated so far</h4><ol id="ma-guide-history-list"></ol></div>
+  <p class="finance-guide-result" id="ma-guide-result" hidden></p>
+  <p id="ma-last-decision" hidden></p>
+</div></section>
       <details class="finance-detail-disclosure finance-inspection"><summary>Q-value trajectories and selected state</summary>
       <section class="finance-section ma-section">
         <header class="ch-section-heading"><p class="eyebrow">03 · Inspect the policy</p><h2>Action values and allocation policy</h2><p>Select a state and watch all six Q-values evolve across completed training passes. Different market signals and previous holdings may generate different allocation choices.</p></header>
@@ -1214,28 +1228,9 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
       : "Ready · Choose the parameters, then press Start training.";
     $("finance-evaluate").disabled=!pythonReady||playing||!model.passes;
     $("finance-step").disabled=!pythonReady||playing||model.passes>=budget();
-    renderLearningChart();renderUpdate();renderPolicySnapshot();renderQTable(model.q,model.visits);
+    renderLearningChart();renderPolicySnapshot();
     renderComparison();
-    window.renderFinanceBoards?.('apple',model.q,model.last,!playing&&model.passes<budget());
-  }
-  function renderUpdate() {
-    const x=model.last;
-    if(!x) {
-      $("finance-update-state").textContent="No transition yet. Use Guided step to observe an action, reward, and Q-value update.";
-      ["finance-q-old","finance-q-target","finance-td-error","finance-q-new"].forEach(id=>$(id).textContent="—");
-      $("finance-update-formula").textContent="Q(s,a) ← Q(s,a) + α [r + γ max Q(s′,·) − Q(s,a)]";
-      $("finance-live-q").innerHTML="<p class='finance-small'>All Q-values are initially zero; no preference has been learned.</p>";
-      return;
-    }
-    const signals=`${up4[x.t]?"up":"down"} / ${up12[x.t]?"up":"down"}`;
-    $("finance-update-state").innerHTML=`<strong>Week ${data[x.t].date}</strong> · Momentum (4w / 12w): ${signals} · Previous holding: ${ACTIONS[x.oldPrev]}<span>Selected <strong>${ACTIONS[x.a]}</strong> ${x.eps===0?"":`(ε = ${(x.eps*100).toFixed(1)}%)`} · Realized stock return: ${pct(returns[x.t],2)} · Trading cost: ${(x.tradeCost*10000).toFixed(1)} bps · RL reward: ${fmt(x.reward,4)}${x.last?" · End of replay": ""}</span>`;
-    $("finance-q-old").textContent=fmt(x.oldQ);
-    $("finance-q-target").textContent=fmt(x.target);
-    $("finance-td-error").textContent=fmt(x.td);
-    $("finance-q-new").textContent=fmt(x.updated);
-    $("finance-update-formula").textContent=`${fmt(x.oldQ,4)} + ${alpha().toFixed(2)} × [${fmt(x.reward,4)} + ${x.last?"0 (terminal)":`${gamma().toFixed(2)} × ${fmt(x.nextBest,4)}`} − ${fmt(x.oldQ,4)}] = ${fmt(x.updated,4)}`;
-    const q=model.q[x.s];const best=argmax(q);
-    $("finance-live-q").innerHTML=ACTIONS.map((a,i)=>`<div class="finance-q-chip ${best===i?"best":""} ${i===x.a?"just-updated":""}"><small>${a}</small><strong>${fmt(q[i])}</strong><span>${i===x.a?"Updated this step":best===i?"Current greedy choice":"Alternative"}</span></div>`).join("");
+    window.renderFinanceBoards?.('apple',model.q,model.last,!playing&&model.passes<budget(),{currentReward:model.currentReward,date:model.last?data[model.last.t].date:null});
   }
   function renderLearningChart() {
     const svg=$("finance-learning-chart");
@@ -1316,14 +1311,6 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   function renderSummary(policies) {
     $("finance-results-body").innerHTML=policies.map((p,i)=>`<tr class="${i===0?"highlight":""}"><td>${p.name}</td><td>${pct(p.totalReturn)}</td><td>${pct(p.maxDrawdown)}</td><td>${p.turnover.toFixed(1)}×</td><td>${p.changes}</td></tr>`).join("");
   }
-  function renderQTable(q,visits) {
-    let html="";
-    for(let b4=0;b4<2;b4++) for(let b12=0;b12<2;b12++) for(let prev=0;prev<3;prev++) {
-      const s=(b4*2+b12)*3+prev,best=argmax(q[s]);
-      html+=`<tr><td>${b4?"Up":"Down"}</td><td>${b12?"Up":"Down"}</td><td>${ACTIONS[prev]}</td>${q[s].map((v,i)=>`<td class="${best===i?"preferred":""}">${fmt(v)}</td>`).join("")}<td>${ACTIONS[best]}</td><td>${visits[s]}</td></tr>`;
-    }
-    $("finance-q-body").innerHTML=html;
-  }
   function renderDecisionSelect() {
     const select=$("finance-week"),old=Number(select.value);
     select.disabled=false;
@@ -1342,6 +1329,8 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     $("finance-decision").innerHTML=props.map(([k,v])=>`<div><small>${k}</small><strong>${v}</strong></div>`).join("");
   }
   window.financeAdvance ??= {};
+  window.financeGuidedSnapshot ??= {};
+  window.financeGuidedSnapshot.apple = () => ({last:model?.last,alpha:alpha(),gamma:gamma(),stockReturn:model?.last?returns[model.last.t]:null});
   window.financeAdvance.apple = weeks => {
     if (!pythonReady || playing || model.passes >= budget()) return;
     runWeeks(Math.min(weeks,(budget()-model.passes)*trainIndices.length-model.position));
@@ -1521,21 +1510,9 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
       $('ch-state-readout').textContent=`After ${live.passes} passes: Q(cash)=${dec(vals[0],4)}, Q(50%)=${dec(vals[1],4)}, Q(100%)=${dec(vals[2],4)}. Current greedy choice: ${WEIGHTS[best]}% MSFT. This state has been visited ${trace.visits} times.`;
     }catch(e){$('ch-state-readout').textContent='Q-trace unavailable: '+String(e.message||e);}
   }
-  function policyTable(){
-    if(!live)return;
-    let html='<table class="ch-table"><thead><tr><th>4w</th><th>12w</th><th>Previous</th><th>Best allocation</th><th>Best Q</th></tr></thead><tbody>';
-    for(let i=0;i<12;i++){
-      const g=Math.floor(i/3),w=WEIGHTS[i%3],best=argmax(live.q[i]);
-      html+=`<tr class="${i===selectedState?'ch-selected-row':''}" data-ch-state="${i}"><td>${g&2?'↑':'↓'}</td><td>${g&1?'↑':'↓'}</td><td>${w}%</td><td><strong>${WEIGHTS[best]}%</strong></td><td>${dec(live.q[i][best],3)}</td></tr>`;
-    }
-    $('ch-policy-table').innerHTML=html+'</tbody></table>';
-    $('ch-policy-table').querySelectorAll('[data-ch-state]').forEach(row=>row.addEventListener('click',()=>{
-      selectedState=Number(row.dataset.chState);$('ch-state').value=selectedState;renderState();
-    }));
-  }
   function renderState(){
     $('ch-state-definition').textContent=stateDesc(selectedState);
-    qChart();policyTable();
+    qChart();
   }
   function render(){
     if(!ready||!live){controls();return;}
@@ -1555,7 +1532,7 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     const counts=[0,0,0];live.q.forEach(row=>counts[argmax(row)]++);
     $('ch-policy').textContent=`Across 12 states, the current greedy policy chooses cash in ${counts[0]}, 50% MSFT in ${counts[1]}, and 100% MSFT in ${counts[2]}. Ties are broken toward cash.`;
     rewardChart();renderState();controls();
-    window.renderFinanceBoards?.('msft',live.q,live.last,!running&&live.passes<budget);
+    window.renderFinanceBoards?.('msft',live.q,live.last,!running&&live.passes<budget,{currentReward:live.currentReward,date:live.last?market[live.last.t].date:null});
   }
   const fnum=(x,n=2)=>x==null?'—':Number(x).toFixed(n);
   function briefTable(rows){
@@ -1656,6 +1633,8 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   $('ch-defaults').addEventListener('click',()=>{for(const [p,v]of Object.entries(REFERENCE))$('ch-'+p).value=v;reset();});
   $('ch-start').addEventListener('click',start);$('ch-pause').addEventListener('click',pause);
   window.financeAdvance ??= {};
+  window.financeGuidedSnapshot ??= {};
+  window.financeGuidedSnapshot.msft = () => ({last:live?.last,alpha:cfg().alpha,gamma:cfg().gamma});
   window.financeAdvance.microsoft = weeks => {
     if (!ready || running || live.passes >= cfg().budget) return;
     step(Math.min(weeks,(cfg().budget-live.passes)*segments.trainWeeks-live.position));
@@ -1774,7 +1753,7 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     plot('ma-reward-chart',[{values:live.history,color:'#12674f'},
         {values:live.greedyHistory,color:'#2f67bd'}],budget,'Start training to see reward curves');
     drawQ();controls();
-    window.renderFinanceBoards?.('multi',live.q,live.last,!running&&live.passes<budget);
+    window.renderFinanceBoards?.('multi',live.q,live.last,!running&&live.passes<budget,{currentReward:live.currentReward,date:live.last?.date});
   }
   function metricsTable(results){
     return '<div class="ch-table-scroll"><table class="ch-table"><thead><tr><th>Strategy</th><th>Net return</th><th>Max drawdown</th><th>Annual volatility</th><th>Sharpe*</th><th>Trades</th></tr></thead><tbody>'+
@@ -1813,6 +1792,8 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
   for(const p of ['alpha','gamma','epsilon','budget'])$('ma-'+p).addEventListener('input',reset);
   $('ma-start').addEventListener('click',start);
   window.financeAdvance ??= {};
+  window.financeGuidedSnapshot ??= {};
+  window.financeGuidedSnapshot.multi = () => ({last:live?.last,alpha:cfg().alpha,gamma:cfg().gamma});
   window.financeAdvance.multi = weeks => {
     if (!ready || running || live.passes >= cfg().budget) return;
     step(Math.min(weeks,(cfg().budget-live.passes)*live.trainWeeks-live.position));
@@ -1830,44 +1811,67 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  let phase = 0, explanations = [];
-  function showPhase() {
-    const item = explanations[phase];
-    $('finance-guide-title').textContent = item[0];
-    $('finance-guide-copy').textContent = item[1];
-    $('finance-guide-next').hidden = phase === explanations.length - 1;
-  }
-  $('finance-step').addEventListener('click', () => {
-    explanations = [
-      ['Observe and act', $('apple-agent-board').textContent],
-      ['Set a target', `The old value was ${$('finance-q-old').textContent}. The Bellman target is ${$('finance-q-target').textContent}.`],
-      ['Find the error', `The difference between target and old value is ${$('finance-td-error').textContent}.`],
-      ['Update memory', `The Q-value is now ${$('finance-q-new').textContent}. The other actions in this state remain visible below.`]
-    ];
-    phase = 0; $('finance-guide').hidden = false; showPhase();
-  });
-  $('finance-guide-next').addEventListener('click', () => { if (phase < explanations.length - 1) { phase++; showPhase(); } });
-  for (const [trigger, original, panel, prefix, board] of [['ch-guided-step','ch-week','ch-guide','ch','msft'],['ma-guided-step','ma-step','ma-guide','ma','multi']]) {
-    let stepIndex = 0, steps = [];
-    const show = () => {
-      $(prefix+'-guide-title').textContent = steps[stepIndex][0];
-      $(prefix+'-guide-copy').textContent = steps[stepIndex][1];
-      $(prefix+'-guide-next').hidden = stepIndex === steps.length - 1;
-    };
-    $(trigger).addEventListener('click', () => {
-      if ($(original).disabled) return;
-      $(original).click(); $(panel).hidden = false;
-      const update = trigger === 'ch-guided-step' ? $('ch-update').textContent : $('ma-q-update').textContent;
-      const decision = $(prefix+'-last-decision').textContent;
-      steps = [
-        ['Observe and act', decision],
-        ['Compare estimates', `The action value changed from ${update}. The reward and the best available next-state estimate determine the temporal-difference error.`],
-        ['Update memory', `Only the selected state-action value is updated. The policy board above shows the current best action for every state.`],
-        ['Inspect the policy', `Select any state on the policy board to compare its actions. The same historical weeks can be replayed below in Training and diagnostics.`]
+  const plans = [
+    {kind:'apple',prefix:'finance',trigger:'finance-step'},
+    {kind:'msft',prefix:'ch',trigger:'ch-guided-step',original:'ch-week'},
+    {kind:'multi',prefix:'ma',trigger:'ma-guided-step',original:'ma-step'}
+  ];
+  const fmt = n => Number(n).toFixed(4);
+  for (const plan of plans) {
+    const {kind,prefix,trigger,original} = plan;
+    const id = suffix => $(prefix+'-guide'+suffix);
+    let sequence = [], index = 0, done = false, state = 0;
+    const panel = id('');
+    function show() {
+      const [label,title,copy,calculation] = sequence[index];
+      id('-index').textContent = `${done?sequence.length:index+1} / ${sequence.length}`;
+      id('-bar').style.width = `${100*(done?1:(index+1)/sequence.length)}%`;
+      id('-label').textContent = label;
+      id('-title').textContent = done ? 'Update complete' : title;
+      id('-copy').textContent = done ? 'The state panel above shows the updated values and policy.' : copy;
+      id('-calculation').textContent = calculation;
+      const list = id('-history-list'); list.replaceChildren();
+      sequence.slice(0,done?sequence.length:index).forEach(([step,, , result]) => {
+        const li = document.createElement('li'), name = document.createElement('span'), value = document.createElement('strong');
+        name.textContent=step; value.textContent=result; li.append(name,value); list.append(li);
+      });
+      id('-history').hidden = !list.childElementCount;
+      id('-next').hidden = done;
+      id('-next').textContent = index === sequence.length-1 ? 'Show final result' : 'Next calculation step';
+      if (done) window.finishFinanceGuided?.(kind);
+      const card = $(kind+'-state-board').querySelector(`[data-state="${state}"]`);
+      id('-result').hidden = !done;
+      if (done && card) id('-result').textContent = `Final result for s${state}: ${[...card.querySelectorAll('.finance-state-q')].map(cell => `${cell.querySelector('small').textContent} = ${cell.querySelector('strong').textContent}`).join(' · ')}. Preferred allocation: ${card.querySelector('.finance-state-head b').textContent}.`;
+    }
+    $(trigger).addEventListener('click',() => {
+      if (original) { if ($(original).disabled) return; $(original).click(); }
+      const data = window.financeGuidedSnapshot?.[kind]?.();
+      const x = data?.last; if (!x) { window.finishFinanceGuided?.(kind); return; }
+      state = x.s ?? x.state;
+      const action = x.a ?? x.action;
+      const row = $(kind+'-state-board').querySelector(`[data-state="${state}"]`);
+      const signal = row?.querySelector('.finance-state-signals')?.textContent || `state s${state}`;
+      const actions = kind==='multi' ? ['Cash','SPY','TLT','SPY/TLT','SPY/cash','TLT/cash'] : ['0%','50%','100%'];
+      const reward=x.reward, old=x.oldQ ?? x.old, updated=x.updated ?? x.new, td=x.td;
+      const target=x.target ?? old+td, continuation=target-reward;
+      const nextText = x.last ? '0 (end of pass)' : x.nextBest == null ? fmt(continuation) : `${fmt(data.gamma)} × ${fmt(x.nextBest)}`;
+      const actionNote = x.eps == null ? 'The behaviour policy selects an action, sometimes exploring.' : `The behaviour policy selects an action; exploration probability is ${(100*x.eps).toFixed(1)}%.`;
+      const rewardNote = kind==='apple' ? `Week ${$(kind+'-read-date').textContent}. Apple return ${(100*data.stockReturn).toFixed(2)}%; trading cost ${(10000*x.tradeCost).toFixed(1)} bps. The learning reward also includes the downside penalty.` : kind==='msft' ? `Week ${$(kind+'-read-date').textContent}. Gross portfolio return ${(100*x.gross).toFixed(2)}%; trading cost ${(10000*x.tradeCost).toFixed(1)} bps. The learning reward includes the downside penalty.` : `Week ${$(kind+'-read-date').textContent}. The learning reward is relative to the 50/50 reference, after costs and the downside penalty.`;
+      sequence = [
+        ['1 · State','Observe the state',signal,`S = s${state}`],
+        ['2 · Action','Choose an allocation',actionNote,`A = ${actions[action]}`],
+        ['3 · Reward','Observe the reward',rewardNote,`r = ${fmt(reward)}`],
+        ['4 · Continue','Estimate the continuation',x.last ? 'A replay ends here, so there is no next-state value.' : 'Use the best estimated action in the next state.',x.nextBest == null ? `γ max Q(s′,·) = ${fmt(continuation)}` : `γ max Q(s′,·) = ${nextText} = ${fmt(continuation)}`],
+        ['5 · Target','Calculate the TD target','Add the reward and discounted continuation.',`Y = ${fmt(reward)} + ${fmt(continuation)} = ${fmt(target)}`],
+        ['6 · TD error','Calculate the TD error','Compare the target with the old estimate.',`δ = ${fmt(target)} − ${fmt(old)} = ${fmt(td)}`],
+        ['7 · Update','Update the selected Q-value','Move the old estimate by the learning rate times the TD error.',`Qnew = ${fmt(old)} + ${fmt(data.alpha)} × ${fmt(td)} = ${fmt(updated)}`]
       ];
-      stepIndex = 0; show();
+      index=0; done=false; panel.hidden=false; show();
     });
-    $(prefix+'-guide-next').addEventListener('click', () => { if (stepIndex < steps.length-1) { stepIndex++; show(); } });
+    id('-next').addEventListener('click',() => { if(index < sequence.length-1) index++; else done=true; show(); });
+    id('-close').addEventListener('click',() => { window.finishFinanceGuided?.(kind); panel.hidden=true; });
+    const reset = $(kind==='apple'?'finance-reset':kind==='msft'?'ch-reset':'ma-reset');
+    reset.addEventListener('click',() => { panel.hidden=true; });
   }
 })();
 </script>
