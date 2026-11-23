@@ -19,7 +19,6 @@
       <a class="active" href="finance.html" aria-current="page">Applied to finance</a>
       <a href="coding.html">Coding</a>
     </nav>
-    <div class="status-pill"><span></span> Python learning engine</div>
   </header>
   <nav class="finance-scenario-switch" aria-label="Finance scenarios">
     <button type="button" class="active" data-scenario="apple">Apple</button>
@@ -98,13 +97,11 @@
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="apple-read-date">—</strong></div><div><small>State</small><strong id="apple-read-state">—</strong></div><div><small>Action</small><strong id="apple-read-action">—</strong></div><div><small>Reward</small><strong id="apple-read-reward">—</strong></div><div><small>Pass reward</small><strong id="apple-read-pass">0.00%</strong></div></div></div>
         <div class="finance-guide" id="finance-guide" hidden>
-  <div class="guided-progress"><span id="finance-guide-index">1 / 7</span><div><i id="finance-guide-bar"></i></div></div>
-  <p class="eyebrow" id="finance-guide-label">Observe</p>
+  <ol class="guided-steps" id="finance-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="finance-guide-title">Observe the weekly state</h3>
   <p id="finance-guide-copy"></p>
   <div class="calculation" id="finance-guide-calculation"></div>
   <div class="guided-actions"><button type="button" class="button small ghost" id="finance-guide-close">Close</button><button type="button" class="button small primary" id="finance-guide-next">Next calculation step</button></div>
-  <div class="guided-history" id="finance-guide-history" hidden><h4>Calculated so far</h4><ol id="finance-guide-history-list"></ol></div>
   <p class="finance-guide-result" id="finance-guide-result" hidden></p>
   
 </div>
@@ -220,13 +217,11 @@
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="msft-read-date">—</strong></div><div><small>State</small><strong id="msft-read-state">—</strong></div><div><small>Action</small><strong id="msft-read-action">—</strong></div><div><small>Reward</small><strong id="msft-read-reward">—</strong></div><div><small>Pass reward</small><strong id="msft-read-pass">0.00%</strong></div></div></div>
       <div class="finance-guide" id="ch-guide" hidden>
-  <div class="guided-progress"><span id="ch-guide-index">1 / 7</span><div><i id="ch-guide-bar"></i></div></div>
-  <p class="eyebrow" id="ch-guide-label">Observe</p>
+  <ol class="guided-steps" id="ch-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="ch-guide-title">Observe the weekly state</h3>
   <p id="ch-guide-copy"></p>
   <div class="calculation" id="ch-guide-calculation"></div>
   <div class="guided-actions"><button type="button" class="button small ghost" id="ch-guide-close">Close</button><button type="button" class="button small primary" id="ch-guide-next">Next calculation step</button></div>
-  <div class="guided-history" id="ch-guide-history" hidden><h4>Calculated so far</h4><ol id="ch-guide-history-list"></ol></div>
   <p class="finance-guide-result" id="ch-guide-result" hidden></p>
   <p id="ch-last-decision" hidden></p>
 </div></section>
@@ -332,13 +327,11 @@
       <span class="finance-playback-note">Steps are historical training weeks; Start replays the training period.</span>
     </div><div class="finance-transition-readout transition-readout" aria-live="polite"><div><small>Week</small><strong id="multi-read-date">—</strong></div><div><small>State</small><strong id="multi-read-state">—</strong></div><div><small>Action</small><strong id="multi-read-action">—</strong></div><div><small>Reward</small><strong id="multi-read-reward">—</strong></div><div><small>Pass reward</small><strong id="multi-read-pass">0.00%</strong></div></div></div>
       <div class="finance-guide" id="ma-guide" hidden>
-  <div class="guided-progress"><span id="ma-guide-index">1 / 7</span><div><i id="ma-guide-bar"></i></div></div>
-  <p class="eyebrow" id="ma-guide-label">Observe</p>
+  <ol class="guided-steps" id="ma-guide-steps" aria-label="Calculation steps"></ol>
   <h3 id="ma-guide-title">Observe the weekly state</h3>
   <p id="ma-guide-copy"></p>
   <div class="calculation" id="ma-guide-calculation"></div>
   <div class="guided-actions"><button type="button" class="button small ghost" id="ma-guide-close">Close</button><button type="button" class="button small primary" id="ma-guide-next">Next calculation step</button></div>
-  <div class="guided-history" id="ma-guide-history" hidden><h4>Calculated so far</h4><ol id="ma-guide-history-list"></ol></div>
   <p class="finance-guide-result" id="ma-guide-result" hidden></p>
   <p id="ma-last-decision" hidden></p>
 </div></section>
@@ -1823,19 +1816,17 @@ const FINANCE_MARKET_DATA = [{"date":"2018-01-01","aapl":1.0},{"date":"2018-01-0
     let sequence = [], index = 0, done = false, state = 0;
     const panel = id('');
     function show() {
-      const [label,title,copy,calculation] = sequence[index];
-      id('-index').textContent = `${done?sequence.length:index+1} / ${sequence.length}`;
-      id('-bar').style.width = `${100*(done?1:(index+1)/sequence.length)}%`;
-      id('-label').textContent = label;
+      const [,title,copy,calculation] = sequence[index];
+      id('-steps').replaceChildren(...sequence.map(([step,, , result],i) => {
+        const li = document.createElement('li'), name = document.createElement('span'), value = document.createElement('strong');
+        const complete = done || i < index;
+        li.className = complete ? 'done' : i === index ? 'current' : '';
+        if (i === index && !done) li.setAttribute('aria-current','step');
+        name.textContent = step; value.textContent = complete ? result : ''; li.append(name,value); return li;
+      }));
       id('-title').textContent = done ? 'Update complete' : title;
       id('-copy').textContent = done ? 'The state panel above shows the updated values and policy.' : copy;
       id('-calculation').textContent = calculation;
-      const list = id('-history-list'); list.replaceChildren();
-      sequence.slice(0,done?sequence.length:index).forEach(([step,, , result]) => {
-        const li = document.createElement('li'), name = document.createElement('span'), value = document.createElement('strong');
-        name.textContent=step; value.textContent=result; li.append(name,value); list.append(li);
-      });
-      id('-history').hidden = !list.childElementCount;
       id('-next').hidden = done;
       id('-next').textContent = index === sequence.length-1 ? 'Show final result' : 'Next calculation step';
       if (done) window.finishFinanceGuided?.(kind);

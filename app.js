@@ -471,6 +471,17 @@ function beginGuidedStep() {
   document.getElementById("guided-card").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+function renderGuidedSteps(list, steps, index, done) {
+  list.replaceChildren(...steps.map(([label,, , result], i) => {
+    const item = document.createElement("li"), name = document.createElement("span"), value = document.createElement("strong");
+    const complete = done || i < index;
+    item.className = complete ? "done" : i === index ? "current" : "";
+    if (i === index && !done) item.setAttribute("aria-current", "step");
+    name.textContent = label; value.textContent = complete ? result : "";
+    item.append(name, value); return item;
+  }));
+}
+
 function renderGuided() {
   const g = guided; if (!g) return;
   const steps = [
@@ -483,23 +494,11 @@ function renderGuided() {
     ["7 · Update", `Move the old estimate toward the target.`, "The learning rate determines how much of the error is incorporated in this update.", `${g.old.toFixed(3)} + ${settings.alpha.toFixed(2)} × ${g.td.toFixed(3)} = ${g.updated.toFixed(3)}`],
     ["8 · Refresh", `The action value and policy can now change.`, "The synchronized boards refresh after the update. Repeated experience gradually shapes the learned value surface.", `Q(${stateName(g.s)},${ACTIONS[g.a].arrow}) ← ${g.updated.toFixed(3)}`]
   ];
-  const [label,title,copy,calc] = steps[g.index];
-  document.getElementById("guided-index").textContent = `${g.applied ? steps.length : g.index + 1} / ${steps.length}`;
-  document.getElementById("guided-bar").style.width = `${(g.applied ? 1 : (g.index + 1) / steps.length) * 100}%`;
-  document.getElementById("guided-label").textContent = label;
+  const [,title,copy,calc] = steps[g.index];
+  renderGuidedSteps(document.getElementById("guided-steps"), steps, g.index, g.applied);
   document.getElementById("guided-title").textContent = g.applied ? "Update applied to the Q-table." : title;
   document.getElementById("guided-copy").textContent = g.applied ? "The boards above now reflect the completed update." : copy;
   document.getElementById("guided-calculation").textContent = calc;
-  const history = document.getElementById("guided-history");
-  const list = document.getElementById("guided-history-list");
-  list.replaceChildren();
-  steps.slice(0, g.applied ? steps.length : g.index).forEach(([stepLabel,, , result]) => {
-    const item = document.createElement("li");
-    const name = document.createElement("span"); name.textContent = stepLabel;
-    const value = document.createElement("strong"); value.textContent = result;
-    item.append(name, value); list.append(item);
-  });
-  history.hidden = !list.childElementCount;
   document.getElementById("next-guided").hidden = !!g.applied;
   document.getElementById("next-guided").textContent = g.index === steps.length - 1 ? "Apply update" : "Next calculation step";
 }

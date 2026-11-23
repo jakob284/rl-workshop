@@ -446,7 +446,6 @@
 .finance-transition-readout { min-width: 0; }
 .finance-transition-readout strong { font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
 .finance-guide h3 { margin: 8px 0; font: 600 23px Inter, ui-sans-serif, sans-serif; }
-.finance-guide .eyebrow { margin: 15px 0 0; font-size: 11px; }
 .finance-guide .calculation { margin: 15px 0; }
 .finance-guide-result { margin-top: 15px !important; padding-top: 12px; border-top: 1px solid #cadbd2; font-size: 13px; color: var(--muted); }
 .finance-guide-result[hidden] { display: none; }

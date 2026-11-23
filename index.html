@@ -18,7 +18,6 @@
       <a href="finance.html">Applied to finance</a>
       <a href="coding.html">Coding</a>
     </nav>
-    <div class="status-pill"><span></span> Browser-based simulation</div>
   </header>
 
   <nav class="basics-nav" aria-label="Basics pages">
@@ -206,13 +205,11 @@
       </div>
 
       <div class="guided-card" id="guided-card" hidden>
-        <div class="guided-progress"><span id="guided-index">1 / 8</span><div><i id="guided-bar"></i></div></div>
-        <p class="eyebrow" id="guided-label">Observe the current state</p>
+        <ol class="guided-steps" id="guided-steps" aria-label="Calculation steps"></ol>
         <h3 id="guided-title">The agent is in state s₀.</h3>
         <p id="guided-copy">This state contains the information used for the next decision.</p>
         <div class="calculation" id="guided-calculation"></div>
         <div class="guided-actions"><button class="button small ghost" id="close-guided">Close</button><button class="button small primary" id="next-guided">Next calculation step</button></div>
-        <div class="guided-history" id="guided-history" hidden><h4>Calculated so far</h4><ol id="guided-history-list"></ol></div>
       </div>
 
       <details class="training-disclosure"><summary>Training and diagnostics</summary>
