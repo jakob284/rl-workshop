@@ -226,3 +226,11 @@ dialog::backdrop { background: rgba(5,17,20,.75); backdrop-filter: blur(5px); }.
 .environment-switch a { display: inline-flex; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; }
 @media (max-width: 1050px) { .site-nav { display: flex; } }
 @media (max-width: 680px) { .topbar { gap: 8px; } .brand small { display: none; } .site-nav { gap: 10px; font-size: 12px; } .site-nav a { white-space: nowrap; } .basics-nav { justify-content: flex-start; overflow-x: auto; gap: 15px; } .basics-nav button { white-space: nowrap; } }
+.evaluation-layout { display: grid; grid-template-columns: .9fr 1.1fr; gap: 20px; align-items: start; }
+.evaluation-intro { padding: 28px; }
+.evaluation-intro h3 { margin-top: 0; }
+.evaluation-intro p, .evaluation-note { color: var(--muted); line-height: 1.6; }
+.evaluation-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.evaluation-metrics .metric-card { min-height: 155px; }
+@media (max-width: 950px) { .evaluation-layout { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .evaluation-metrics { grid-template-columns: 1fr; } }

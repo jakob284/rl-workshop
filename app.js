@@ -30,6 +30,16 @@ let path = [START];
 let selectedState = START;
 let guided = null;
 let randomState = 934775;
+let evaluationCurrent = false;
+
+function clearEvaluation() {
+  if (!evaluationCurrent) return;
+  evaluationCurrent = false;
+  for (const id of ["eval-greedy-return", "eval-random-return", "eval-goal-rate"]) {
+    document.getElementById(id).textContent = "—";
+  }
+  document.getElementById("evaluation-status").textContent = "The policy changed. Run evaluation again to see the current result.";
+}
 
 function rng() {
   randomState |= 0; randomState = randomState + 0x6D2B79F5 | 0;
@@ -148,6 +158,7 @@ function chooseAction(s, forceRandom = false) {
 }
 
 function qUpdate(s, a, transition) {
+  clearEvaluation();
   const old = qLearned[s][a];
   const nextBest = TERMINALS.has(transition.next) ? 0 : Math.max(...qLearned[transition.next]);
   const target = transition.reward + settings.gamma * nextBest;
@@ -205,6 +216,22 @@ function runEpisodes(count) {
     }
   }
   renderAll();
+}
+
+function evaluateGridPolicy(randomPolicy, episodes = 100) {
+  let totalReturn = 0, goals = 0;
+  for (let episode = 0; episode < episodes; episode++) {
+    let state = START, episodeReturn = 0;
+    for (let step = 0; step < 80 && !TERMINALS.has(state); step++) {
+      const action = randomPolicy ? Math.floor(rng() * ACTIONS.length) : greedyActions(qLearned[state])[0];
+      const result = sampleTransition(state, action);
+      episodeReturn += result.reward;
+      state = result.next;
+    }
+    totalReturn += episodeReturn;
+    if (state === GOAL) goals++;
+  }
+  return { meanReturn: totalReturn / episodes, goalRate: goals / episodes };
 }
 
 function cellBase(s) {
@@ -314,6 +341,7 @@ function rmse() {
 
 function renderMetrics() {
   document.getElementById("metric-episodes").textContent = episodeCount;
+  document.getElementById("evaluate-grid").disabled = episodeCount === 0;
   const last = returnHistory.slice(-10);
   document.getElementById("metric-return").textContent = last.length ? (last.reduce((a,b)=>a+b,0)/last.length).toFixed(2) : "—";
   document.getElementById("metric-rmse").textContent = episodeCount ? rmse().toFixed(3) : "—";
@@ -471,6 +499,7 @@ function advanceGuided() {
 }
 
 function resetLearning() {
+  clearEvaluation();
   visits.fill(0); pairVisits.forEach(row => row.fill(0));
   agentState = START; episodeReturn = 0; episodeSteps = 0; episodeCount = 0; returnHistory = []; path = [START]; randomState = 934775;
   initializeQLearned();
@@ -479,12 +508,12 @@ function resetLearning() {
 
 let activeView = 0;
 function setView(index) {
-  activeView = Math.max(0, Math.min(3, Number(index)));
+  activeView = Math.max(0, Math.min(4, Number(index)));
   document.querySelectorAll("[data-view-panel]").forEach(panel => panel.classList.toggle("active", Number(panel.dataset.viewPanel) === activeView));
   document.querySelectorAll(".basics-nav [data-view]").forEach(button => button.classList.toggle("active", Number(button.dataset.view) === activeView));
-  document.getElementById("view-position").textContent = `${activeView + 1} / 4`;
+  document.getElementById("view-position").textContent = `${activeView + 1} / 5`;
   document.getElementById("previous-view").disabled = activeView === 0;
-  document.getElementById("next-view").disabled = activeView === 3;
+  document.getElementById("next-view").disabled = activeView === 4;
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
@@ -500,13 +529,24 @@ document.getElementById("run-episode").addEventListener("click", () => runEpisod
 document.getElementById("reset-agent").addEventListener("click", resetLearning);
 document.getElementById("train-10").addEventListener("click", () => runEpisodes(10));
 document.getElementById("train-100").addEventListener("click", () => runEpisodes(100));
+document.getElementById("evaluate-grid").addEventListener("click", () => {
+  const trainingRandomState = randomState;
+  const learned = evaluateGridPolicy(false);
+  const random = evaluateGridPolicy(true);
+  randomState = trainingRandomState;
+  document.getElementById("eval-greedy-return").textContent = learned.meanReturn.toFixed(2);
+  document.getElementById("eval-random-return").textContent = random.meanReturn.toFixed(2);
+  document.getElementById("eval-goal-rate").textContent = `${Math.round(learned.goalRate * 100)}%`;
+  document.getElementById("evaluation-status").textContent = `Evaluated the frozen Q-table after ${episodeCount} training episodes. No Q-values were updated.`;
+  evaluationCurrent = true;
+});
 document.getElementById("previous-view").addEventListener("click", () => setView(activeView - 1));
 document.getElementById("next-view").addEventListener("click", () => setView(activeView + 1));
 document.getElementById("defaults").addEventListener("click", () => {
   [["alpha",.3],["gamma",.92],["epsilon",.2],["slip",0]].forEach(([id,v]) => { document.getElementById(id).value = v; document.getElementById(id).dispatchEvent(new Event("input")); }); resetLearning();
 });
 [["alpha","alpha-output",v => Number(v).toFixed(2)], ["gamma","gamma-output",v => Number(v).toFixed(2)], ["epsilon","epsilon-output",v => Number(v).toFixed(2)], ["slip","slip-output",v => `${Math.round(Number(v)*100)}%`]].forEach(([id,out,format]) => {
-  document.getElementById(id).addEventListener("input", e => { settings[id] = Number(e.target.value); document.getElementById(out).textContent = format(e.target.value); evaluateRandomPolicy(); computeExactQ(); renderAll(); });
+  document.getElementById(id).addEventListener("input", e => { clearEvaluation(); settings[id] = Number(e.target.value); document.getElementById(out).textContent = format(e.target.value); evaluateRandomPolicy(); computeExactQ(); renderAll(); });
 });
 
 initializeQLearned(); evaluateRandomPolicy(); computeExactQ(); renderAll(); updateReadout(START, 0, { reward: 0, next: START }); setView(0);

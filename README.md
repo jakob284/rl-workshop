@@ -4,9 +4,22 @@ Static workshop website for GitHub Pages. The three main areas are **Basics**, *
 
 ## Pages
 
-- `index.html`: theory and interactive grid world, including a short explanation of training, validation and final testing.
-- `finance.html`: Apple, Microsoft, and SPY/TLT/cash scenarios. Each uses the same Overview, Portfolio MDP, Training, and Evaluation navigation. Apple has a switchable training reward and Q-value memory display.
+- `index.html`: theory and interactive grid world, with a separate frozen-policy evaluation page and a short explanation of training, validation and final testing.
+- `finance.html`: Apple, Microsoft, and SPY/TLT/cash scenarios. Each uses Overview, Portfolio MDP, Control room, Training, and Evaluation. The control rooms expose one real Python step and learned Q-values; training controls and reward curves follow on their own page.
 - `coding.html`: first version of the coding area, with a guided Apple notebook and a completed counterpart, source module and data.
+
+## Teaching flow and interface
+
+The main navigation leads to Basics, Applied to finance, or Coding. Basics and each finance scenario use the same underlined page navigation. The boxed Apple, Microsoft, and Multi-asset selector changes the scenario, not the lesson stage.
+
+| Stage | Basics | Applied to finance |
+| --- | --- | --- |
+| Setup | Introduction and Environment | Overview and Portfolio MDP |
+| One decision | Q-learning Control room with guided step | Control room with a real weekly Q update and learned values |
+| Repeated learning | Training diagnostics | Training controls and reward curves |
+| Frozen policy | Evaluation on fresh grid episodes | Evaluation on later historical periods |
+
+Keep detailed data, implementation, and notebooks in Coding. Keep the finance Q-value boards inside Control room and the training curves inside Training. Evaluation uses the current policy without further Q updates; finance validation and final holdout remain distinct from the training period. Explanatory caveats should appear next to the claim they qualify, without a separate modeling-assumption block at the bottom of a lesson page.
 
 Serve the files locally with `python3 -m http.server 8000` from the repository root, then open `http://localhost:8000/`. The finance learning controls require internet access to load Pyodide. On restricted corporate networks, allow `cdn.jsdelivr.net/pyodide/v0.29.1/full/` or arrange a reviewed local runtime mirror before the workshop.
 
