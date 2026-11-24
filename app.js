@@ -31,6 +31,10 @@ let selectedState = START;
 let guided = null;
 let randomState = 934775;
 let evaluationCurrent = false;
+let mode = "qlearning";
+let qPlan = Array.from({ length: N }, () => Array(4).fill(0));
+let planSweep = 0, planDeltas = [], planChanges = null, planTimer = null;
+const PLAN_TOL = 1e-6;
 
 function clearEvaluation() {
   if (!evaluationCurrent) return;
@@ -145,6 +149,51 @@ function computeExactQ() {
   }
   qExact = q;
 }
+
+const isDecision = s => !WALLS.has(s) && !TERMINALS.has(s);
+const subDigits = n => String(n).replace(/\d/g, d => "₀₁₂₃₄₅₆₇₈₉"[d]);
+
+function bellmanBackup(q, s, a) {
+  const branches = transitionDistribution(s, a).map(b => {
+    const cont = TERMINALS.has(b.next) ? 0 : Math.max(...q[b.next]);
+    return { ...b, cont, target: b.reward + settings.gamma * cont };
+  });
+  return { branches, value: branches.reduce((sum, b) => sum + b.p * b.target, 0) };
+}
+
+function bellmanSweep(q) {
+  const next = q.map(row => row.slice());
+  let delta = 0, changes = 0;
+  for (let s = 0; s < N; s++) {
+    if (!isDecision(s)) continue;
+    for (let a = 0; a < 4; a++) {
+      next[s][a] = bellmanBackup(q, s, a).value;
+      delta = Math.max(delta, Math.abs(next[s][a] - q[s][a]));
+    }
+    if (greedyActions(next[s])[0] !== greedyActions(q[s])[0]) changes++;
+  }
+  return { next, delta, changes };
+}
+
+function applySweep(result) {
+  qPlan = result.next; planSweep++; planDeltas.push(result.delta); planChanges = result.changes;
+}
+
+function planConverged() { return planSweep > 0 && planDeltas[planDeltas.length - 1] < PLAN_TOL; }
+
+function stopPlanTimer() {
+  if (planTimer) { clearInterval(planTimer); planTimer = null; }
+  document.getElementById("run-convergence").textContent = "Run to convergence";
+}
+
+function resetPlanning() {
+  stopPlanTimer();
+  if (guided && guided.kind === "bellman") closeGuided();
+  qPlan = Array.from({ length: N }, () => Array(4).fill(0));
+  planSweep = 0; planDeltas = []; planChanges = null;
+}
+
+function planState() { return isDecision(selectedState) ? selectedState : START; }
 
 function greedyActions(qRow) {
   const max = Math.max(...qRow);
@@ -265,11 +314,11 @@ function renderEnvironment() {
   }
 }
 
-function currentValues() {
-  return qLearned.map(row => Math.max(...row));
-}
+function currentQ() { return mode === "bellman" ? qPlan : qLearned; }
 
-function currentQ() { return qLearned; }
+function currentValues() {
+  return currentQ().map(row => Math.max(...row));
+}
 
 function valueColor(v) {
   const clamped = Math.max(-1, Math.min(1, v));
@@ -288,7 +337,7 @@ function renderBoards() {
     const pc = makeCell(s), vc = makeCell(s), qc = makeCell(s);
     const ac = makeCell(s, path.includes(s) ? ["path"] : []);
     if (!WALLS.has(s) && !TERMINALS.has(s)) {
-      const best = greedyActions(qLearned[s])[0];
+      const best = greedyActions(qs[s])[0];
       pc.innerHTML = `<span class="policy-arrow single">${ACTIONS[best].arrow}</span>`;
       vc.innerHTML = `<span class="value-number">${vals[s].toFixed(2)}</span>`;
       vc.style.background = valueColor(vals[s]);
@@ -298,11 +347,68 @@ function renderBoards() {
       const label = s === GOAL ? "+1" : "−1";
       [pc,vc,qc].forEach(c => c.innerHTML = `<strong>${label}</strong>`);
     }
-    if (s === agentState) { ac.classList.add("current"); ac.innerHTML = `<span class="agent" aria-label="Agent"></span>`; }
-    if (s === GOAL && s !== agentState) ac.innerHTML = "+1";
-    if (s === LOSS && s !== agentState) ac.innerHTML = "−1";
+    if (mode === "bellman") {
+      ac.classList.remove("path");
+      if (s === GOAL) ac.innerHTML = "+1";
+      if (s === LOSS) ac.innerHTML = "−1";
+    } else {
+      if (s === agentState) { ac.classList.add("current"); ac.innerHTML = `<span class="agent" aria-label="Agent"></span>`; }
+      if (s === GOAL && s !== agentState) ac.innerHTML = "+1";
+      if (s === LOSS && s !== agentState) ac.innerHTML = "−1";
+    }
     policyGrid.appendChild(pc); valueGrid.appendChild(vc); qGrid.appendChild(qc); agentGrid.appendChild(ac);
   }
+  if (mode === "bellman") renderBranches(agentGrid);
+}
+
+function branchFocus() {
+  if (guided && guided.kind === "bellman") return { s: guided.s, a: guided.a };
+  const s = planState();
+  return { s, a: greedyActions(qPlan[s])[0] };
+}
+
+function renderBranches(grid) {
+  const { s, a } = branchFocus(), cells = grid.children;
+  cells[s].classList.add("current");
+  cells[s].innerHTML = `<span class="branch-origin">${ACTIONS[a].arrow}</span>`;
+  transitionDistribution(s, a).forEach(b => {
+    const cell = cells[b.next];
+    cell.classList.add("branch");
+    cell.insertAdjacentHTML("beforeend", `<span class="branch-p">p ${b.p.toFixed(2)}</span>`);
+  });
+}
+
+function renderPlanning() {
+  const last = planDeltas[planDeltas.length - 1];
+  let error = 0;
+  for (let s = 0; s < N; s++) if (isDecision(s)) for (let a = 0; a < 4; a++) error = Math.max(error, Math.abs(qPlan[s][a] - qExact[s][a]));
+  document.getElementById("plan-sweep").textContent = planSweep;
+  document.getElementById("plan-delta").textContent = planSweep ? (last < PLAN_TOL ? "< 10⁻⁶" : last.toFixed(4)) : "—";
+  document.getElementById("plan-changes").textContent = planChanges === null ? "—" : planChanges;
+  document.getElementById("plan-error").textContent = error < PLAN_TOL ? "< 10⁻⁶" : error.toFixed(4);
+  document.getElementById("plan-status").innerHTML = planSweep === 0 ? "Q<sub>0</sub> = 0" : planConverged() ? "Converged to Q*" : planTimer ? "Sweeping…" : "In progress";
+  document.getElementById("plan-model").textContent = `Model: γ = ${settings.gamma.toFixed(2)}, movement uncertainty ${Math.round(settings.slip * 100)}%. Change both under Training and diagnostics; the sweep restarts from Q₀ = 0.`;
+  renderConvergenceChart();
+}
+
+function renderConvergenceChart() {
+  const svg = document.getElementById("convergence-chart");
+  const L = 52, R = 505, T = 14, B = 172, floor = -6;
+  const top = Math.max(0, Math.ceil(Math.log10(Math.max(1, ...planDeltas))));
+  const y = v => T + (top - Math.max(floor, Math.log10(Math.max(v, 1e-12)))) / (top - floor) * (B - T);
+  const count = Math.max(10, planDeltas.length);
+  const x = k => L + (k - 1) / (count - 1) * (R - L);
+  let h = "";
+  for (let e = top; e >= floor; e -= 2) h += `<line class="conv-grid" x1="${L}" x2="${R}" y1="${y(10 ** e)}" y2="${y(10 ** e)}"></line><text class="conv-label" x="${L - 8}" y="${y(10 ** e) + 4}" text-anchor="end">10${e === 0 ? "⁰" : e < 0 ? "⁻" + "⁰¹²³⁴⁵⁶⁷⁸⁹"[-e] : "⁰¹²³⁴⁵⁶⁷⁸⁹"[e]}</text>`;
+  h += `<text class="conv-label" x="${L}" y="${B + 20}">Sweep 1</text><text class="conv-label" x="${R}" y="${B + 20}" text-anchor="end">Sweep ${count}</text>`;
+  if (!planDeltas.length) h += `<text class="conv-empty" x="${(L + R) / 2}" y="${(T + B) / 2}" text-anchor="middle">Run a sweep to draw the change per sweep</text>`;
+  else {
+    const bound = planDeltas.map((_, i) => `${x(i + 1).toFixed(1)},${y(planDeltas[0] * settings.gamma ** i).toFixed(1)}`).join(" ");
+    const line = planDeltas.map((d, i) => `${x(i + 1).toFixed(1)},${y(d).toFixed(1)}`).join(" ");
+    h += `<polyline class="conv-bound" points="${bound}"></polyline><polyline class="conv-line" points="${line}"></polyline>`;
+    h += planDeltas.map((d, i) => `<circle class="conv-dot" cx="${x(i + 1).toFixed(1)}" cy="${y(d).toFixed(1)}" r="2.6"></circle>`).join("");
+  }
+  svg.innerHTML = h;
 }
 
 function renderVisits() {
@@ -360,7 +466,7 @@ function updateReadout(s, a, transition) {
   document.getElementById("read-return").textContent = episodeReturn.toFixed(2);
 }
 
-function renderAll() { evaluateRandomPolicy(); computeExactQ(); renderEnvironment(); renderBoards(); renderVisits(); renderChart(); renderMetrics(); }
+function renderAll() { evaluateRandomPolicy(); computeExactQ(); renderEnvironment(); renderBoards(); renderVisits(); renderChart(); renderMetrics(); renderPlanning(); }
 
 const formulas = {
   mdp: {
@@ -447,44 +553,82 @@ function renderFormulaMini() {
   document.getElementById("example-step").textContent = miniMoved ? "Reset example" : "Move one step";
 }
 
-function setMethod(method) {
-  document.querySelectorAll("[data-method]").forEach(b => b.classList.toggle("active", b.dataset.method === method));
-  const planning = method === "planning";
-  document.getElementById("method-eyebrow").textContent = planning ? "Planning from a known model" : "Learning from sampled experience";
-  document.getElementById("method-title").textContent = planning ? "Average over every possible next outcome." : "Update from the one transition that actually occurred.";
-  document.getElementById("method-copy").innerHTML = planning
-    ? "At this point, the transition-and-reward model <strong>p(s′, r | s, a)</strong> is available. A Bellman backup can therefore combine all possible next states and rewards, weighted by their probabilities."
-    : "At this point, the transition-and-reward model is <strong>not supplied to the agent</strong>. Q-learning replaces the probability-weighted expectation with a sampled transition <strong>(s, a, r, s′)</strong>.";
-  document.getElementById("method-formula").innerHTML = planning
-    ? "Q<sub>k+1</sub>(s,a) = Σ<sub>s′,r</sub> p(s′,r | s,a) [r + γ max<sub>a′</sub> Q<sub>k</sub>(s′,a′)]"
-    : "Q(s,a) ← Q(s,a) + α [r + γ max<sub>a′</sub>Q(s′,a′) − Q(s,a)]";
-  document.getElementById("method-caption").textContent = planning ? "A model-based Bellman optimality backup." : "A model-free temporal-difference update from one experience.";
+const MODE_TEXT = {
+  qlearning: {
+    eyebrow: "Q-learning", title: "State, action values, policy, and experience",
+    copy: "The four panels display the same Q-learning process. Initial Q-values are small random numbers; subsequent values are updated from observed transitions.",
+    policy: "One arrow shows arg max<sub>a</sub> Q(s,a)", value: "V̂<sub>g</sub>(s) = max<sub>a</sub> Q(s,a), derived from panel 03",
+    qHeading: "Action values Q(s,a)", q: "Four estimates for each accessible state",
+    agentHeading: "Observed trajectory", agent: "Current state, transition, reward, and visited path"
+  },
+  bellman: {
+    eyebrow: "Bellman · value iteration", title: "Plan with the known model, sweep by sweep",
+    copy: "Here the agent is given p(s′,r | s,a). Starting from Q<sub>0</sub> = 0, each sweep applies the Bellman optimality backup to every state-action pair. No episodes, no exploration, no learning rate.",
+    policy: "One arrow shows arg max<sub>a</sub> Q<sub>k</sub>(s,a)", value: "V<sub>k</sub>(s) = max<sub>a</sub> Q<sub>k</sub>(s,a), derived from panel 03",
+    qHeading: "Action values Q<sub>k</sub>(s,a)", q: "Table after k sweeps; converges to Q*",
+    agentHeading: "Model branches", agent: "p(s′ | s,a) for the selected state and its greedy action; click a cell to choose the state"
+  }
+};
+
+function setMode(next) {
+  mode = next;
+  stopPlanTimer();
+  closeGuided();
+  document.querySelectorAll("[data-mode]").forEach(b => { const on = b.dataset.mode === mode; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
+  document.querySelectorAll("[data-mode-panel]").forEach(p => { p.hidden = p.dataset.modePanel !== mode; });
+  const t = MODE_TEXT[mode];
+  for (const [id, key] of [["mode-eyebrow","eyebrow"],["mode-title","title"],["mode-copy","copy"],["policy-caption","policy"],["value-caption","value"],["q-heading","qHeading"],["q-caption","q"],["agent-heading","agentHeading"],["agent-caption","agent"]]) document.getElementById(id).innerHTML = t[key];
+  renderAll();
 }
 
+function closeGuided() { guided = null; document.getElementById("guided-card").hidden = true; }
+
+function beginGuidedBackup() {
+  stopPlanTimer();
+  const s = planState(), a = greedyActions(qPlan[s])[0];
+  guided = { kind: "bellman", index: 0, s, a, k: planSweep, backup: bellmanBackup(qPlan, s, a), sweep: bellmanSweep(qPlan) };
+  document.getElementById("guided-card").hidden = false;
+  renderAll(); renderGuided();
+  document.getElementById("guided-card").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function bellmanSteps(g) {
+  const k = subDigits(g.k), k1 = subDigits(g.k + 1), sa = `${stateName(g.s)},${ACTIONS[g.a].arrow}`;
+  const br = g.backup.branches, many = br.length > 1;
+  return [
+    ["1 · Choose", `Back up Q(${sa}) for sweep ${g.k + 1}.`, "Click a cell to change the state. The action is the current greedy action under Q" + k + ".", `(${stateName(g.s)}, ${ACTIONS[g.a].label})`],
+    ["2 · Model", "List every possible outcome from the model.", many ? "The known model gives each next state and its probability: the intended move and the sideways slips." : "With deterministic movement, the model gives a single outcome with probability 1.", br.map(b => `${stateName(b.next)}: p ${b.p.toFixed(2)}`).join(" · ")],
+    ["3 · Continue", `Look up the best next-state value in Q${k}.`, "For each outcome, take max over a′ of the current estimates. A terminal state contributes no continuation.", br.map(b => `${stateName(b.next)}: ${b.cont.toFixed(3)}`).join(" · ")],
+    ["4 · Targets", "Form a one-step target for each outcome.", "Immediate reward plus the discounted best continuation, exactly as in the TD target, but for every outcome.", br.map(b => `${b.reward.toFixed(2)} + ${settings.gamma.toFixed(2)} × ${b.cont.toFixed(3)} = ${b.target.toFixed(3)}`).join(" · "), br.map(b => `${stateName(b.next)}: ${b.target.toFixed(3)}`).join(" · ")],
+    ["5 · Expectation", "Average the targets with the model probabilities.", "This expectation is what Q-learning cannot compute: it needs the probabilities, not just one observed outcome.", `Q${k1}(${sa}) = ${br.map(b => `${b.p.toFixed(2)} × ${b.target.toFixed(3)}`).join(" + ")} = ${g.backup.value.toFixed(3)}`, `Q${k1}(${sa}) = ${g.backup.value.toFixed(3)}`],
+    ["6 · Sweep", "Do the same for all 80 state-action pairs.", `Every new value is computed from Q${k} only, never from values already updated in this sweep. The largest change measures how far the sweep moved the table.`, `Δ${k1} = max |Q${k1} − Q${k}| = ${g.sweep.delta.toFixed(4)}`],
+    ["7 · Replace", `Q${k1} replaces Q${k}.`, "Repeating the sweep is the recursion. Because the backup is a γ-contraction, the changes shrink and the table converges to Q*.", `k = ${g.k + 1} · ${g.sweep.changes} policy changes`]
+  ];
+}
 function beginGuidedStep() {
   const s = agentState, a = chooseAction(s), transition = sampleTransition(s, a);
   const old = qLearned[s][a], nextBest = TERMINALS.has(transition.next) ? 0 : Math.max(...qLearned[transition.next]);
   const target = transition.reward + settings.gamma * nextBest, td = target - old, updated = old + settings.alpha * td;
-  guided = { index: 0, s, a, transition, old, nextBest, target, td, updated };
+  guided = { kind: "qlearning", index: 0, s, a, transition, old, nextBest, target, td, updated };
   document.getElementById("guided-card").hidden = false;
   renderGuided();
   document.getElementById("guided-card").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function renderGuidedSteps(list, steps, index, done) {
-  list.replaceChildren(...steps.map(([label,, , result], i) => {
+  list.replaceChildren(...steps.map(([label,, , result, short], i) => {
     const item = document.createElement("li"), name = document.createElement("span"), value = document.createElement("strong");
     const complete = done || i < index;
     item.className = complete ? "done" : i === index ? "current" : "";
     if (i === index && !done) item.setAttribute("aria-current", "step");
-    name.textContent = label; value.textContent = complete ? result : "";
+    name.textContent = label; value.textContent = complete ? (short ?? result) : "";
     item.append(name, value); return item;
   }));
 }
 
 function renderGuided() {
   const g = guided; if (!g) return;
-  const steps = [
+  const steps = g.kind === "bellman" ? bellmanSteps(g) : [
     ["1 · Observe", `The agent is in ${stateName(g.s)}.`, "The current state is the information used for the next decision.", `Sₜ = ${stateName(g.s)}`],
     ["2 · Select", `The behaviour policy chooses ${ACTIONS[g.a].label.toLowerCase()}.`, "With ε-greedy behaviour, the agent usually chooses a currently best action and sometimes explores.", `Aₜ = ${ACTIONS[g.a].label}`],
     ["3 · Experience", `The environment moves to ${stateName(g.transition.next)}.`, "This is one sampled outcome—not an average over every possible outcome.", `(${stateName(g.s)}, ${ACTIONS[g.a].label}, ${g.transition.reward.toFixed(2)}, ${stateName(g.transition.next)})`],
@@ -494,18 +638,21 @@ function renderGuided() {
     ["7 · Update", `Move the old estimate toward the target.`, "The learning rate determines how much of the error is incorporated in this update.", `${g.old.toFixed(3)} + ${settings.alpha.toFixed(2)} × ${g.td.toFixed(3)} = ${g.updated.toFixed(3)}`],
     ["8 · Refresh", `The action value and policy can now change.`, "The synchronized boards refresh after the update. Repeated experience gradually shapes the learned value surface.", `Q(${stateName(g.s)},${ACTIONS[g.a].arrow}) ← ${g.updated.toFixed(3)}`]
   ];
+  g.count = steps.length;
   const [,title,copy,calc] = steps[g.index];
   renderGuidedSteps(document.getElementById("guided-steps"), steps, g.index, g.applied);
-  document.getElementById("guided-title").textContent = g.applied ? "Update applied to the Q-table." : title;
-  document.getElementById("guided-copy").textContent = g.applied ? "The boards above now reflect the completed update." : copy;
+  const bell = g.kind === "bellman";
+  document.getElementById("guided-title").textContent = g.applied ? (bell ? `Sweep ${g.k + 1} applied.` : "Update applied to the Q-table.") : title;
+  document.getElementById("guided-copy").textContent = g.applied ? (bell ? "The boards above now show the new table. Run more sweeps to watch the values converge." : "The boards above now reflect the completed update.") : copy;
   document.getElementById("guided-calculation").textContent = calc;
   document.getElementById("next-guided").hidden = !!g.applied;
-  document.getElementById("next-guided").textContent = g.index === steps.length - 1 ? "Apply update" : "Next calculation step";
+  document.getElementById("next-guided").textContent = g.index === steps.length - 1 ? (bell ? "Apply sweep" : "Apply update") : "Next calculation step";
 }
 
 function advanceGuided() {
   if (!guided || guided.applied) return;
-  if (guided.index < 7) { guided.index++; renderGuided(); return; }
+  if (guided.index < guided.count - 1) { guided.index++; renderGuided(); return; }
+  if (guided.kind === "bellman") { applySweep(guided.sweep); guided.applied = true; renderAll(); renderGuided(); return; }
   completeTransition(guided.s, guided.a, guided.transition, true);
   guided.applied = true; renderGuided();
 }
@@ -532,12 +679,26 @@ function setView(index) {
 
 document.addEventListener("click", event => {
   const viewButton = event.target.closest("[data-view]"); if (viewButton) setView(viewButton.dataset.view);
-  const methodButton = event.target.closest("[data-method]"); if (methodButton) setMethod(methodButton.dataset.method);
+  const modeButton = event.target.closest("[data-mode]"); if (modeButton && modeButton.dataset.mode !== mode) setMode(modeButton.dataset.mode);
 });
 document.getElementById("fast-step").addEventListener("click", fastStep);
 document.getElementById("guided-step").addEventListener("click", beginGuidedStep);
 document.getElementById("next-guided").addEventListener("click", advanceGuided);
-document.getElementById("close-guided").addEventListener("click", () => { guided = null; document.getElementById("guided-card").hidden = true; });
+document.getElementById("close-guided").addEventListener("click", () => { closeGuided(); renderAll(); });
+document.getElementById("guided-backup").addEventListener("click", beginGuidedBackup);
+document.getElementById("one-sweep").addEventListener("click", () => { stopPlanTimer(); closeGuided(); if (!planConverged()) applySweep(bellmanSweep(qPlan)); renderAll(); });
+document.getElementById("run-convergence").addEventListener("click", () => {
+  if (planTimer) { stopPlanTimer(); renderAll(); return; }
+  closeGuided();
+  if (planConverged()) return;
+  document.getElementById("run-convergence").textContent = "Pause";
+  planTimer = setInterval(() => {
+    applySweep(bellmanSweep(qPlan));
+    if (planConverged() || planSweep >= 400) stopPlanTimer();
+    renderAll();
+  }, 140);
+});
+document.getElementById("reset-planning").addEventListener("click", () => { resetPlanning(); renderAll(); });
 document.getElementById("run-episode").addEventListener("click", () => runEpisode());
 document.getElementById("reset-agent").addEventListener("click", resetLearning);
 document.getElementById("train-10").addEventListener("click", () => runEpisodes(10));
@@ -559,7 +720,7 @@ document.getElementById("defaults").addEventListener("click", () => {
   [["alpha",.3],["gamma",.92],["epsilon",.2],["slip",0]].forEach(([id,v]) => { document.getElementById(id).value = v; document.getElementById(id).dispatchEvent(new Event("input")); }); resetLearning();
 });
 [["alpha","alpha-output",v => Number(v).toFixed(2)], ["gamma","gamma-output",v => Number(v).toFixed(2)], ["epsilon","epsilon-output",v => Number(v).toFixed(2)], ["slip","slip-output",v => `${Math.round(Number(v)*100)}%`]].forEach(([id,out,format]) => {
-  document.getElementById(id).addEventListener("input", e => { clearEvaluation(); settings[id] = Number(e.target.value); document.getElementById(out).textContent = format(e.target.value); evaluateRandomPolicy(); computeExactQ(); renderAll(); });
+  document.getElementById(id).addEventListener("input", e => { clearEvaluation(); settings[id] = Number(e.target.value); document.getElementById(out).textContent = format(e.target.value); if (id === "gamma" || id === "slip") resetPlanning(); evaluateRandomPolicy(); computeExactQ(); renderAll(); });
 });
 
 initializeQLearned(); evaluateRandomPolicy(); computeExactQ(); renderAll(); updateReadout(START, 0, { reward: 0, next: START }); setView(0);

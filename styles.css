@@ -247,3 +247,28 @@ dialog::backdrop { background: rgba(5,17,20,.75); backdrop-filter: blur(5px); }.
 .training-content { padding: 36px 28px 48px; }
 .training-content .section-heading { color: var(--ink); }
 @media (max-width: 680px) { .training-content { padding: 25px 15px; } }
+
+/* Q-learning / Bellman sub-tabs */
+.mode-switch { display: inline-flex; gap: 4px; margin: -8px 0 22px; padding: 4px; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; background: #162b31; }
+.mode-switch button { padding: 9px 16px; border: 0; border-radius: 9px; background: transparent; color: rgba(255,255,255,.68); font-weight: 750; cursor: pointer; }
+.mode-switch button.active { background: var(--white); color: var(--ink); }
+.cell.branch { box-shadow: inset 0 0 0 2px var(--mint); }
+.branch-p { position: absolute; top: 4px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 800; color: var(--mint); }
+.branch-origin { font-size: 20px; font-weight: 800; color: var(--white); }
+.convergence-card { margin-top: 16px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.25fr); gap: 26px; align-items: center; padding: 22px 24px; border-radius: 16px; background: var(--white); color: var(--ink); }
+.convergence-card h3 { margin: 0 0 8px; font: 500 22px Georgia, serif; }
+.convergence-card p { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.convergence-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px !important; }
+.convergence-legend i { display: inline-block; width: 18px; margin-right: 6px; vertical-align: middle; border-top: 2px solid var(--mint-dark); }
+.convergence-legend i.dashed { border-top: 2px dashed #9aa6a3; }
+.convergence-model { font-size: 12px !important; margin: 0 !important; }
+#convergence-chart { display: block; width: 100%; height: auto; }
+.conv-grid { stroke: #e3e7e2; stroke-width: 1; }
+.conv-label { fill: #7b8582; font-size: 11px; }
+.conv-empty { fill: #9aa6a3; font-size: 13px; }
+.conv-line { fill: none; stroke: var(--mint-dark); stroke-width: 2.2; }
+.conv-bound { fill: none; stroke: #9aa6a3; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.conv-dot { fill: var(--mint-dark); }
+@media (max-width: 750px) { .convergence-card { grid-template-columns: 1fr; } .mode-switch { display: flex; } .mode-switch button { flex: 1; padding: 9px 8px; font-size: 12px; } }
+[data-mode-panel][hidden] { display: none !important; }
+.theory-grid + .theory-passage { margin-top: 16px; }

@@ -66,7 +66,7 @@
 
       <div class="theory-section">
         <div class="theory-section-title"><span>3</span><div><h2>Trajectory, return, and policy</h2><p>How behaviour and outcomes are represented</p></div></div>
-        <div class="full-formula sequence-formula" role="img" aria-label="In state S zero, take action A zero and observe reward R one and next state S one together; then take action A one and observe reward R two and state S two together."><span>S<sub>0</sub></span><i>→</i><span>A<sub>0</sub></span><i>→</i><span class="outcome">(R<sub>1</sub>, S<sub>1</sub>)</span><i>→</i><span>A<sub>1</sub></span><i>→</i><span class="outcome">(R₂, S₂)</span><i>→ ···</i></div>
+        <div class="full-formula sequence-formula" role="img" aria-label="In state S zero, take action A zero and observe reward R one and next state S one together; then take action A one and observe reward R two and state S two together."><span>S<sub>0</sub></span><i>→</i><span>A<sub>0</sub></span><i>→</i><span class="outcome">(R<sub>1</sub>, S<sub>1</sub>)</span><i>→</i><span>A<sub>1</sub></span><i>→</i><span class="outcome">(R<sub>2</sub>, S<sub>2</sub>)</span><i>→ ···</i></div>
         <p class="theory-passage">At each decision, the agent observes a state, takes an action, and then observes the reward and next state together.</p>
         <div class="theory-grid two">
           <article class="theory-card formula-card-theory"><h3>Discounted return</h3><div class="card-formula">G<sub>t</sub> = Σ<sub>k=0</sub><sup>∞</sup> γ<sup>k</sup>R<sub>t+k+1</sub></div><p>The return aggregates rewards from time t onward. A smaller γ places less weight on distant outcomes.</p></article>
@@ -75,20 +75,24 @@
       </div>
 
       <div class="theory-section">
-        <div class="theory-section-title"><span>4</span><div><h2>Value functions</h2><p>Expected return under a specified policy</p></div></div>
+        <div class="theory-section-title"><span>4</span><div><h2>Value functions</h2><p>Expected return under a given policy, and the best achievable</p></div></div>
         <div class="theory-grid two">
           <article class="theory-card formula-card-theory"><h3>State value</h3><div class="card-formula">V<sup>π</sup>(s) = E<sub>π</sub>[G<sub>t</sub> | S<sub>t</sub>=s]</div><p>Expected return from state s when policy π is followed.</p></article>
           <article class="theory-card formula-card-theory"><h3>Action value</h3><div class="card-formula">Q<sup>π</sup>(s,a) = E<sub>π</sub>[G<sub>t</sub> | S<sub>t</sub>=s,A<sub>t</sub>=a]</div><p>Expected return after taking action a in state s, then following π.</p></article>
+          <article class="theory-card formula-card-theory"><h3>Optimal state value</h3><div class="card-formula">V*(s) = max<sub>π</sub> V<sup>π</sup>(s)</div><p>The best expected return achievable from state s by any policy.</p></article>
+          <article class="theory-card formula-card-theory"><h3>Optimal action value</h3><div class="card-formula">Q*(s,a) = max<sub>π</sub> Q<sup>π</sup>(s,a)</div><p>The best expected return after taking action a in state s, then acting optimally.</p></article>
         </div>
-        <div class="theory-note"><strong>Optimal values.</strong> V*(s) = max<sub>a</sub> Q*(s,a), and an optimal deterministic policy can be selected through π*(s) ∈ arg max<sub>a</sub> Q*(s,a).</div>
+        <div class="theory-note"><strong>Link between them.</strong> V*(s) = max<sub>a</sub> Q*(s,a), and an optimal deterministic policy can be selected through π*(s) ∈ arg max<sub>a</sub> Q*(s,a).</div>
       </div>
 
       <div class="theory-section">
         <div class="theory-section-title"><span>5</span><div><h2>Bellman backups and Q-learning</h2><p>From an expected outcome to one observed update</p></div></div>
-        <div class="full-formula major">
-          <div><span class="formula-label">Planning with a known model</span><div class="formula-main small">Q*(s,a) = E[r + γ max<sub>a′</sub> Q*(s′,a′) | s,a]</div></div>
-          <p>The Bellman optimality equation averages over possible rewards and next states using a supplied transition model. This is the model-based formula used to plan an optimal action.</p>
+        <p class="theory-passage"><strong>Planning with a known model.</strong> The Bellman optimality equations write each optimal value as the immediate reward plus the discounted optimal value of the next state. The expectation runs over the model p(s′,r | s,a), so it can be computed exactly when the model is known.</p>
+        <div class="theory-grid two">
+          <article class="theory-card formula-card-theory"><h3>Bellman optimality · state values</h3><div class="card-formula">V*(s) = max<sub>a</sub> E[R<sub>t+1</sub> + γ V*(S<sub>t+1</sub>) | S<sub>t</sub>=s, A<sub>t</sub>=a]</div><p>Choose the action with the best expected one-step outcome, valued with V*.</p></article>
+          <article class="theory-card formula-card-theory"><h3>Bellman optimality · action values</h3><div class="card-formula">Q*(s,a) = E[R<sub>t+1</sub> + γ max<sub>a′</sub> Q*(S<sub>t+1</sub>,a′) | S<sub>t</sub>=s, A<sub>t</sub>=a]</div><p>The maximum moves inside: act once with a, then continue with the best next action.</p></article>
         </div>
+        <p class="theory-passage">Value iteration turns the equation into an update, Q<sub>k+1</sub> ← right-hand side evaluated with Q<sub>k</sub>, and repeats it until the values stop changing. The Bellman tab in the Q-learning view runs exactly this on the grid world.</p>
         <div class="full-formula major q-update">
           <div><span class="formula-label">Learning from one observed transition</span><div class="formula-main small">Q(s,a) ← Q(s,a) + α[r + γ max<sub>a′</sub> Q(s′,a′) − Q(s,a)]</div></div>
           <p>Q-learning uses the reward and next state that actually occurred. It does not need the transition probabilities; the current estimates stand in for unknown future values.</p>
@@ -164,30 +168,34 @@
 
     <section class="section control-section workshop-view" id="control-room" data-view-panel="2">
       <div class="section-heading light">
-        <div><p class="eyebrow">Q-learning</p><h2>State, action values, policy, and experience</h2></div>
-        <p>The four panels display the same Q-learning process. Initial Q-values are small random numbers; subsequent values are updated from observed transitions.</p>
+        <div><p class="eyebrow" id="mode-eyebrow">Q-learning</p><h2 id="mode-title">State, action values, policy, and experience</h2></div>
+        <p id="mode-copy">The four panels display the same Q-learning process. Initial Q-values are small random numbers; subsequent values are updated from observed transitions.</p>
+      </div>
+      <div class="mode-switch" role="tablist" aria-label="Solution method">
+        <button type="button" role="tab" class="active" aria-selected="true" data-mode="qlearning">Q-learning · sampled transitions</button>
+        <button type="button" role="tab" aria-selected="false" data-mode="bellman">Bellman · known model</button>
       </div>
 
       <div class="boards-grid">
         <article class="board-panel">
-          <div class="board-title"><span>01</span><div><h3>Greedy policy</h3><p>One arrow shows arg max<sub>a</sub> Q(s,a)</p></div></div>
+          <div class="board-title"><span>01</span><div><h3>Greedy policy</h3><p id="policy-caption">One arrow shows arg max<sub>a</sub> Q(s,a)</p></div></div>
           <div id="policy-grid" class="grid compact-grid" aria-label="Policy board"></div>
         </article>
         <article class="board-panel">
-          <div class="board-title"><span>02</span><div><h3>Greedy value estimate</h3><p>V̂<sub>g</sub>(s) = max<sub>a</sub> Q(s,a), derived from panel 03</p></div></div>
+          <div class="board-title"><span>02</span><div><h3>Greedy value estimate</h3><p id="value-caption">V̂<sub>g</sub>(s) = max<sub>a</sub> Q(s,a), derived from panel 03</p></div></div>
           <div id="value-grid" class="grid compact-grid" aria-label="State value board"></div>
         </article>
         <article class="board-panel">
-          <div class="board-title"><span>03</span><div><h3>Action values Q(s,a)</h3><p>Four estimates for each accessible state</p></div></div>
+          <div class="board-title"><span>03</span><div><h3 id="q-heading">Action values Q(s,a)</h3><p id="q-caption">Four estimates for each accessible state</p></div></div>
           <div id="q-grid" class="grid compact-grid q-grid" aria-label="Action value board"></div>
         </article>
         <article class="board-panel agent-panel">
-          <div class="board-title"><span>04</span><div><h3>Observed trajectory</h3><p>Current state, transition, reward, and visited path</p></div></div>
+          <div class="board-title"><span>04</span><div><h3 id="agent-heading">Observed trajectory</h3><p id="agent-caption">Current state, transition, reward, and visited path</p></div></div>
           <div id="agent-grid" class="grid compact-grid" aria-label="Live agent board"></div>
         </article>
       </div>
 
-      <div class="playback-console">
+      <div class="playback-console" data-mode-panel="qlearning">
         <div class="console-controls">
           <span class="console-label">Playback</span>
           <button class="button small" id="guided-step">Guided step</button>
@@ -203,6 +211,32 @@
           <div><small>Episode return</small><strong id="read-return">0.00</strong></div>
         </div>
       </div>
+
+      <div class="playback-console" data-mode-panel="bellman" hidden>
+        <div class="console-controls">
+          <span class="console-label">Value iteration</span>
+          <button class="button small" id="guided-backup">Guided backup</button>
+          <button class="button small" id="one-sweep">One sweep</button>
+          <button class="button small" id="run-convergence">Run to convergence</button>
+          <button class="button small ghost" id="reset-planning">Reset</button>
+        </div>
+        <div class="transition-readout" aria-live="polite">
+          <div><small>Sweep k</small><strong id="plan-sweep">0</strong></div>
+          <div><small>Max change Δ<sub>k</sub></small><strong id="plan-delta">—</strong></div>
+          <div><small>Policy changes</small><strong id="plan-changes">—</strong></div>
+          <div><small>max |Q<sub>k</sub> − Q*|</small><strong id="plan-error">—</strong></div>
+          <div><small>Status</small><strong id="plan-status">Q<sub>0</sub> = 0</strong></div>
+        </div>
+      </div>
+      <article class="convergence-card" data-mode-panel="bellman" hidden>
+        <div class="convergence-text">
+          <h3>Recursion until a fixed point</h3>
+          <p>Each sweep applies Q<sub>k+1</sub>(s,a) = E[R<sub>t+1</sub> + γ max<sub>a′</sub> Q<sub>k</sub>(S<sub>t+1</sub>,a′)] to all 80 state-action pairs, using only Q<sub>k</sub>. The change shrinks at least by the factor γ per sweep, so the values converge to Q*.</p>
+          <p class="convergence-legend"><span><i class="solid"></i> Δ<sub>k</sub> = max |Q<sub>k</sub> − Q<sub>k−1</sub>|</span><span><i class="dashed"></i> bound Δ<sub>1</sub>γ<sup>k−1</sup></span></p>
+          <p class="convergence-model" id="plan-model"></p>
+        </div>
+        <svg id="convergence-chart" viewBox="0 0 520 200" role="img" aria-label="Maximum change per sweep on a log scale"></svg>
+      </article>
 
       <div class="guided-card" id="guided-card" hidden>
         <ol class="guided-steps" id="guided-steps" aria-label="Calculation steps"></ol>
