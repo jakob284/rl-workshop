@@ -23,6 +23,156 @@
       <div class="coding-actions"><a class="button primary" href="https://colab.research.google.com/github/jakob284/rl-workshop/blob/main/notebooks/Guided_Apple_QLearning.ipynb" target="_blank" rel="noopener">Open guided notebook in Colab</a><a class="button secondary" href="notebooks/Guided_Apple_QLearning.ipynb" download>Download</a></div>
       <ol class="coding-steps"><li>Click <strong>Open in Colab</strong> and sign in with a Google account.</li><li>Run the first setup cell. It loads the agent code and data. Colab warns that the notebook was not written by Google; this is standard for notebooks from GitHub. Click <strong>Run anyway</strong>.</li><li>Write and run your code. To keep it: <strong>File → Save a copy in Drive</strong>.</li></ol>
     </section>
+    <section class="coding-section" aria-labelledby="coding-toolkit">
+      <div class="section-heading"><div><p class="eyebrow">Toolkit</p><h2 id="coding-toolkit">The libraries behind RL code</h2></div><p>Six libraries cover almost every RL project. The first three run the workshop notebooks; the other three take the same ideas to deep RL.</p></div>
+      <ol class="toolkit-pipeline" aria-label="Where each library sits in an RL project">
+        <li><small>Data</small><strong>pandas</strong></li>
+        <li><small>Environment</small><strong>Gymnasium</strong></li>
+        <li><small>Agent</small><strong>NumPy · PyTorch</strong><em>Q-table → Q-network</em></li>
+        <li><small>Algorithm</small><strong>Stable-Baselines3</strong></li>
+        <li><small>Analysis</small><strong>Matplotlib</strong></li>
+      </ol>
+      <div class="toolkit-tabs" role="tablist" aria-label="Libraries">
+        <div class="toolkit-group"><span>Used today</span><button type="button" role="tab" id="tab-numpy" aria-controls="lib-numpy" aria-selected="true" class="active" data-lib="numpy">NumPy</button><button type="button" role="tab" id="tab-pandas" aria-controls="lib-pandas" aria-selected="false" data-lib="pandas">pandas</button><button type="button" role="tab" id="tab-matplotlib" aria-controls="lib-matplotlib" aria-selected="false" data-lib="matplotlib">Matplotlib</button></div>
+        <div class="toolkit-group"><span>Deep RL</span><button type="button" role="tab" id="tab-gymnasium" aria-controls="lib-gymnasium" aria-selected="false" data-lib="gymnasium">Gymnasium</button><button type="button" role="tab" id="tab-pytorch" aria-controls="lib-pytorch" aria-selected="false" data-lib="pytorch">PyTorch</button><button type="button" role="tab" id="tab-sb3" aria-controls="lib-sb3" aria-selected="false" data-lib="sb3">Stable-Baselines3</button></div>
+      </div>
+        <article class="toolkit-panel panel" id="lib-numpy" role="tabpanel" aria-labelledby="tab-numpy">
+          <header class="toolkit-head"><div><span class="coding-kicker">Used today</span><h3>NumPy</h3><p>Arrays and fast math. In tabular RL the Q-table is simply a NumPy array.</p></div><span class="toolkit-where">Used in the workshop notebooks · preinstalled in Colab</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>np.zeros((n_states, n_actions))</code></td><td>Create an empty Q-table</td></tr><tr><td><code>np.argmax(Q[s])</code></td><td>Greedy action: the column with the highest Q-value</td></tr><tr><td><code>Q[s].max()</code></td><td>Best value in the next state, used in the Bellman target</td></tr><tr><td><code>rng = np.random.default_rng(seed)</code></td><td>Reproducible random numbers; always fix a seed</td></tr><tr><td><code>rng.random() &lt; epsilon</code></td><td>ε-greedy coin flip: explore or exploit</td></tr><tr><td><code>rng.integers(n_actions)</code></td><td>Pick a random action</td></tr><tr><td><code>np.mean(x), np.std(x)</code></td><td>Summarise rewards across episodes or seeds</td></tr><tr><td><code>np.cumprod(1 + returns)</code></td><td>Turn weekly returns into a wealth path</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import numpy as np
+
+rng = np.random.default_rng(42)
+# 12 states x 3 actions (0%, 50%, 100% Apple)
+Q = np.zeros((12, 3))
+alpha, gamma, epsilon = 0.1, 0.9, 0.1
+
+def choose_action(s):
+    if rng.random() &lt; epsilon:    # explore
+        return int(rng.integers(3))
+    return int(np.argmax(Q[s]))   # exploit
+
+# one Q-learning update for a transition (s, a, r, s_next)
+s, r, s_next = 0, 0.01, 4
+a = choose_action(s)
+Q[s, a] += alpha * (r + gamma * Q[s_next].max() - Q[s, a])
+print(Q[s])</code></pre></div>
+          </div>
+        </article>
+        <article class="toolkit-panel panel" id="lib-pandas" role="tabpanel" aria-labelledby="tab-pandas" hidden>
+          <header class="toolkit-head"><div><span class="coding-kicker">Used today</span><h3>pandas</h3><p>Tables of time series: prices in, signals and results out.</p></div><span class="toolkit-where">Used in the workshop notebooks · preinstalled in Colab</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>pd.read_csv(path, parse_dates=[&quot;date&quot;])</code></td><td>Load price history with real dates</td></tr><tr><td><code>df[&quot;AAPL&quot;]</code></td><td>Select one column (one asset)</td></tr><tr><td><code>.pct_change()</code></td><td>Period returns from prices</td></tr><tr><td><code>.shift(k)</code></td><td>Look k periods back; build signals from the past only (no look-ahead)</td></tr><tr><td><code>.rolling(k).mean()</code></td><td>Moving averages, e.g. to smooth a learning curve</td></tr><tr><td><code>.iloc[:split], .iloc[split:]</code></td><td>Chronological train/test split, never shuffled</td></tr><tr><td><code>.to_numpy()</code></td><td>Hand the data to NumPy or the agent</td></tr><tr><td><code>pd.DataFrame(rows)</code></td><td>Collect results into a readable table</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import pandas as pd
+
+path = &quot;data/historical_normalized_weekly_stocks_2018_2019.csv&quot;
+df = pd.read_csv(path, parse_dates=[&quot;date&quot;])
+prices = df[&quot;AAPL&quot;]
+returns = prices.pct_change()          # weekly returns
+mom_4w = prices / prices.shift(4) - 1  # past prices only
+up_4w = mom_4w &gt; 0                     # state: up or down
+
+split = int(len(df) * 0.7)
+train = df.iloc[:split]   # chronological split,
+test = df.iloc[split:]    # never shuffled
+print(len(train), &quot;training weeks,&quot;, len(test), &quot;test weeks&quot;)</code></pre></div>
+          </div>
+        </article>
+        <article class="toolkit-panel panel" id="lib-matplotlib" role="tabpanel" aria-labelledby="tab-matplotlib" hidden>
+          <header class="toolkit-head"><div><span class="coding-kicker">Used today</span><h3>Matplotlib</h3><p>Plots: learning curves, wealth paths, allocations and Q-tables.</p></div><span class="toolkit-where">Used in the workshop notebooks · preinstalled in Colab</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>fig, ax = plt.subplots()</code></td><td>Create a figure and one set of axes</td></tr><tr><td><code>ax.plot(x, y, label=&quot;...&quot;)</code></td><td>Learning curve or wealth path</td></tr><tr><td><code>ax.step(t, weights, where=&quot;post&quot;)</code></td><td>Allocation over time (changes in steps)</td></tr><tr><td><code>ax.imshow(Q)</code></td><td>Heatmap of the Q-table: states × actions</td></tr><tr><td><code>ax.set(title=, xlabel=, ylabel=)</code></td><td>Label everything in one call</td></tr><tr><td><code>ax.legend(), ax.grid(alpha=.2)</code></td><td>Legend and a light grid</td></tr><tr><td><code>plt.show()</code></td><td>Display the figure</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(0)
+Q = rng.normal(size=(12, 3))   # stand-in for a learned Q-table
+
+fig, ax = plt.subplots(figsize=(4, 5))
+im = ax.imshow(Q, cmap=&quot;viridis&quot;, aspect=&quot;auto&quot;)
+ax.set(title=&quot;Q-table&quot;, xlabel=&quot;Action&quot;, ylabel=&quot;State&quot;,
+       xticks=[0, 1, 2], xticklabels=[&quot;0%&quot;, &quot;50%&quot;, &quot;100%&quot;])
+fig.colorbar(im, ax=ax, label=&quot;Q-value&quot;)
+plt.show()</code></pre></div>
+          </div>
+        </article>
+        <article class="toolkit-panel panel" id="lib-gymnasium" role="tabpanel" aria-labelledby="tab-gymnasium" hidden>
+          <header class="toolkit-head"><div><span class="coding-kicker">Deep RL · next step</span><h3>Gymnasium</h3><p>The standard environment interface: reset, step, repeat. Successor of OpenAI Gym; most RL libraries expect it.</p></div><span class="toolkit-where">Deep RL · in Colab: !pip install gymnasium</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>gym.make(&quot;CartPole-v1&quot;)</code></td><td>Create a ready-made benchmark environment</td></tr><tr><td><code>obs, info = env.reset(seed=42)</code></td><td>Start an episode and get the first observation</td></tr><tr><td><code>obs, reward, terminated, truncated, info = env.step(action)</code></td><td>Take one action and observe the result</td></tr><tr><td><code>terminated / truncated</code></td><td>Episode ended naturally / was cut off by a time limit</td></tr><tr><td><code>env.action_space, env.observation_space</code></td><td>What the agent can do and what it sees</td></tr><tr><td><code>env.action_space.sample()</code></td><td>A random valid action</td></tr><tr><td><code>class MyEnv(gym.Env)</code></td><td>Wrap your own problem, e.g. a portfolio, in the same interface</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import gymnasium as gym
+
+env = gym.make(&quot;CartPole-v1&quot;)
+obs, info = env.reset(seed=42)
+episode_return, done = 0.0, False
+
+while not done:
+    action = env.action_space.sample()   # random policy
+    obs, reward, terminated, truncated, info = env.step(action)
+    episode_return += reward
+    done = terminated or truncated
+
+env.close()
+print(&quot;Episode return:&quot;, episode_return)</code></pre></div>
+          </div>
+        </article>
+        <article class="toolkit-panel panel" id="lib-pytorch" role="tabpanel" aria-labelledby="tab-pytorch" hidden>
+          <header class="toolkit-head"><div><span class="coding-kicker">Deep RL · next step</span><h3>PyTorch</h3><p>Neural networks. A Q-network replaces the Q-table when there are too many states to list.</p></div><span class="toolkit-where">Deep RL · preinstalled in Colab (free GPU via Runtime → Change runtime type)</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>torch.tensor(x, dtype=torch.float32)</code></td><td>Turn observations into tensors</td></tr><tr><td><code>nn.Sequential(nn.Linear(...), nn.ReLU(), ...)</code></td><td>Build a Q-network: state in, one Q-value per action out</td></tr><tr><td><code>torch.optim.Adam(net.parameters(), lr=1e-3)</code></td><td>Optimizer that updates the weights</td></tr><tr><td><code>q.gather(1, a.unsqueeze(1))</code></td><td>Pick Q(s, a) for the actions actually taken</td></tr><tr><td><code>with torch.no_grad():</code></td><td>Compute targets without tracking gradients</td></tr><tr><td><code>F.smooth_l1_loss(q, target)</code></td><td>Huber loss on the TD error (common in DQN)</td></tr><tr><td><code>opt.zero_grad(); loss.backward(); opt.step()</code></td><td>One gradient update</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# state (4 numbers) in, one Q-value per action (2) out
+q_net = nn.Sequential(
+    nn.Linear(4, 64), nn.ReLU(),
+    nn.Linear(64, 2),
+)
+opt = torch.optim.Adam(q_net.parameters(), lr=1e-3)
+gamma = 0.99
+
+# a mini-batch of 32 transitions, random here
+s, s_next = torch.randn(32, 4), torch.randn(32, 4)
+a = torch.randint(0, 2, (32,))
+r, done = torch.randn(32), torch.zeros(32)
+
+# Q(s, a) for the actions taken
+q = q_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
+# same Bellman target as the Q-table update
+# (a real DQN uses a separate target network here)
+with torch.no_grad():
+    q_next = q_net(s_next).max(dim=1).values
+    target = r + gamma * (1 - done) * q_next
+
+loss = F.smooth_l1_loss(q, target)
+opt.zero_grad()
+loss.backward()
+opt.step()
+print(&quot;loss:&quot;, loss.item())</code></pre></div>
+          </div>
+        </article>
+        <article class="toolkit-panel panel" id="lib-sb3" role="tabpanel" aria-labelledby="tab-sb3" hidden>
+          <header class="toolkit-head"><div><span class="coding-kicker">Deep RL · next step</span><h3>Stable-Baselines3</h3><p>Tested implementations of DQN, PPO, A2C, SAC and more, built on PyTorch and Gymnasium. Train an agent in a few lines.</p></div><span class="toolkit-where">Deep RL · in Colab: !pip install stable-baselines3</span></header>
+          <div class="toolkit-body">
+            <table class="toolkit-table"><thead><tr><th>Function</th><th>What it does in RL</th></tr></thead><tbody><tr><td><code>DQN(&quot;MlpPolicy&quot;, env) · PPO(...)</code></td><td>Create an agent with a standard network</td></tr><tr><td><code>model.learn(total_timesteps=50_000)</code></td><td>Train</td></tr><tr><td><code>model.predict(obs, deterministic=True)</code></td><td>Act with the learned policy</td></tr><tr><td><code>evaluate_policy(model, env, n_eval_episodes=10)</code></td><td>Mean and std of the episode return</td></tr><tr><td><code>model.save(&quot;ppo_cartpole&quot;) · PPO.load(...)</code></td><td>Store and reload a trained agent</td></tr><tr><td><code>seed=0</code></td><td>Fix randomness; compare algorithms over several seeds</td></tr></tbody></table>
+            <div class="toolkit-code"><div class="toolkit-code-bar"><span>Example</span><button type="button" class="copy-code">Copy</button></div><pre><code>import gymnasium as gym
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
+
+env = gym.make(&quot;CartPole-v1&quot;)
+model = PPO(&quot;MlpPolicy&quot;, env, seed=0, verbose=0)
+model.learn(total_timesteps=50_000)
+
+mean, std = evaluate_policy(model, env, n_eval_episodes=10)
+print(f&quot;Return: {mean:.1f} ± {std:.1f}&quot;)
+
+obs, info = env.reset(seed=1)
+action, _ = model.predict(obs, deterministic=True)</code></pre></div>
+          </div>
+        </article>
+      <p class="coding-note">The finance agent in <code>asset_agent.py</code> uses plain Python only, which is why it also runs inside this website. The notebooks add NumPy, pandas and Matplotlib around it.</p>
+    </section>
     <section class="coding-section" aria-labelledby="coding-path">
       <div class="section-heading"><div><p class="eyebrow">Learning path</p><h2 id="coding-path">One example, two notebooks</h2></div><p>The same Apple data and Python agent power the website and the notebooks. Work through the blank steps before opening the reference solution.</p></div>
       <div class="coding-cards">
@@ -42,5 +192,6 @@
     </section>
   </main>
   <footer><strong>Reinforcement Learning Workshop</strong><span>Finance case study and learning engine by Kai · Site integration by Jakob's workshop team</span></footer>
+  <script src="coding.js"></script>
 </body>
 </html>
