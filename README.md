@@ -7,7 +7,7 @@ Static workshop website for GitHub Pages. The three main areas are **Basics**, *
 - `index.html`: theory and interactive grid world, with training and diagnostics below the four live Q-learning boards and a separate frozen-policy evaluation page.
 - `finance.html`: Apple, Microsoft, and SPY/TLT/cash scenarios. Each uses Introduction, Environment, Q-learning, and Evaluation. Finance Q-learning shows one state-action panel with the current policy and all action values, followed by a playback readout, progressive guided updates, and expandable training diagnostics.
 - `finance-boards.js`: renders the finance state-action panel from live Python snapshots and provides one-week and ten-week playback controls.
-- `coding.html`: coding area with a library toolkit (NumPy, pandas, Matplotlib for the workshop; Gymnasium, PyTorch, Stable-Baselines3 for deep RL: key functions plus a copyable example each), the guided and completed Apple notebooks (open in Colab or download), source module and data. `coding.js` drives the library selector and copy buttons.
+- `coding.html`: two views in the Basics layout. **Libraries**: where each library sits in an RL project, then NumPy, pandas, Matplotlib (workshop stack) and Gymnasium, PyTorch, Stable-Baselines3 (deep RL stack), each with key functions and a copyable example. **Notebooks** (`coding.html#notebooks`): how to run in Colab, the guided and completed Apple notebooks, further examples and data. `coding.js` drives views, library selectors and copy buttons.
 
 ## Teaching flow and interface
 
